@@ -154,6 +154,28 @@ fn routine_folder_commands_use_documented_requests() {
 }
 
 #[test]
+fn routine_folder_list_renders_a_numeric_folder_id() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let request = server
+        .mock("GET", "/v1/routine_folders")
+        .match_header("api-key", "api-key")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"page":1,"page_count":1,"routine_folders":[{"id":123,"title":"Strength & Performance v1"}]}"#)
+        .create();
+
+    command(&server, &config_home)
+        .args(["--api-key", "api-key", "routine-folders", "list"])
+        .assert()
+        .success()
+        .stdout("Page: 1 of 1\n- Strength & Performance v1 (123)\n")
+        .stderr("");
+
+    request.assert();
+}
+
+#[test]
 fn exercise_history_passes_validated_optional_bounds_to_the_documented_endpoint() {
     let mut server = Server::new();
     let config_home = TempDir::new().unwrap();

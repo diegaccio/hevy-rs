@@ -99,8 +99,12 @@ fn resource_text(prefix: &str, resource: &Value) {
         .or_else(|| resource.get("id"))
         .and_then(Value::as_str)
         .unwrap_or("(unnamed)");
-    let id = resource.get("id").and_then(Value::as_str);
-    match id {
+    let id = resource.get("id").and_then(|value| match value {
+        Value::String(id) => Some(id.clone()),
+        Value::Number(id) => Some(id.to_string()),
+        _ => None,
+    });
+    match id.as_deref() {
         Some(id) if id != title => println!("{prefix}{title} ({id})"),
         _ => println!("{prefix}{title}"),
     }
