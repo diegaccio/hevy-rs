@@ -49,6 +49,21 @@ enum Command {
         #[command(subcommand)]
         command: RoutineCommand,
     },
+    /// Commands for exercise templates.
+    ExerciseTemplates {
+        #[command(subcommand)]
+        command: ExerciseTemplateCommand,
+    },
+    /// Commands for routine folders.
+    RoutineFolders {
+        #[command(subcommand)]
+        command: RoutineFolderCommand,
+    },
+    /// Commands for exercise history.
+    ExerciseHistory {
+        #[command(subcommand)]
+        command: ExerciseHistoryCommand,
+    },
 }
 
 #[derive(Subcommand)]
@@ -71,6 +86,41 @@ enum RoutineCommand {
         routine_id: String,
         #[command(flatten)]
         mutation: MutationArgs,
+    },
+}
+
+#[derive(Subcommand)]
+enum ExerciseTemplateCommand {
+    /// List exercise templates.
+    List(ExerciseTemplatePaginationArgs),
+    /// Retrieve an exercise template.
+    Get { exercise_template_id: String },
+    /// Create an exercise template from a complete API-shaped JSON payload.
+    Create(MutationArgs),
+}
+
+#[derive(Subcommand)]
+enum RoutineFolderCommand {
+    /// List routine folders.
+    List(PaginationArgs),
+    /// Retrieve a routine folder.
+    Get { folder_id: String },
+    /// Create a routine folder from a complete API-shaped JSON payload.
+    Create(MutationArgs),
+}
+
+#[derive(Subcommand)]
+enum ExerciseHistoryCommand {
+    /// Retrieve an exercise template's history.
+    Get {
+        /// Exercise template identifier.
+        exercise_template_id: String,
+        /// Include history on or after this ISO-8601 timestamp.
+        #[arg(long, value_parser = parse_iso8601)]
+        start: Option<String>,
+        /// Include history on or before this ISO-8601 timestamp.
+        #[arg(long, value_parser = parse_iso8601)]
+        end: Option<String>,
     },
 }
 
@@ -122,8 +172,23 @@ struct PaginationArgs {
     #[arg(long, value_parser = clap::value_parser!(u32).range(1..), conflicts_with = "all")]
     page: Option<u32>,
 
-    /// Number of items per page (maximum 10 for workouts and routines).
+    /// Number of items per page (maximum 10).
     #[arg(long, value_parser = clap::value_parser!(u32).range(1..=10))]
+    page_size: Option<u32>,
+
+    /// Retrieve every page.
+    #[arg(long)]
+    all: bool,
+}
+
+#[derive(Args)]
+struct ExerciseTemplatePaginationArgs {
+    /// Page number, starting at 1.
+    #[arg(long, value_parser = clap::value_parser!(u32).range(1..), conflicts_with = "all")]
+    page: Option<u32>,
+
+    /// Number of items per page (maximum 100).
+    #[arg(long, value_parser = clap::value_parser!(u32).range(1..=100))]
     page_size: Option<u32>,
 
     /// Retrieve every page.
@@ -206,6 +271,68 @@ fn main() {
                 mutation,
             ),
         },
+        Command::ExerciseTemplates { command } => match command {
+            ExerciseTemplateCommand::List(pagination) => {
+                resolve_api_key(cli.api_key).and_then(|api_key| {
+                    client::list_exercise_templates(
+                        &api_key,
+                        client::Pagination {
+                            page: pagination.page,
+                            page_size: pagination.page_size,
+                            all: pagination.all,
+                        },
+                    )
+                })
+            }
+            ExerciseTemplateCommand::Get {
+                exercise_template_id,
+            } => resolve_api_key(cli.api_key)
+                .and_then(|api_key| client::get_exercise_template(&api_key, &exercise_template_id)),
+            ExerciseTemplateCommand::Create(mutation) => execute_mutation(
+                cli.api_key,
+                "exercise_templates",
+                "exercise template",
+                None,
+                mutation,
+            ),
+        },
+        Command::RoutineFolders { command } => match command {
+            RoutineFolderCommand::List(pagination) => {
+                resolve_api_key(cli.api_key).and_then(|api_key| {
+                    client::list_routine_folders(
+                        &api_key,
+                        client::Pagination {
+                            page: pagination.page,
+                            page_size: pagination.page_size,
+                            all: pagination.all,
+                        },
+                    )
+                })
+            }
+            RoutineFolderCommand::Get { folder_id } => resolve_api_key(cli.api_key)
+                .and_then(|api_key| client::get_routine_folder(&api_key, &folder_id)),
+            RoutineFolderCommand::Create(mutation) => execute_mutation(
+                cli.api_key,
+                "routine_folders",
+                "routine folder",
+                None,
+                mutation,
+            ),
+        },
+        Command::ExerciseHistory { command } => match command {
+            ExerciseHistoryCommand::Get {
+                exercise_template_id,
+                start,
+                end,
+            } => resolve_api_key(cli.api_key).and_then(|api_key| {
+                client::get_exercise_history(
+                    &api_key,
+                    &exercise_template_id,
+                    start.as_deref(),
+                    end.as_deref(),
+                )
+            }),
+        },
         Command::Routines { command } => match command {
             RoutineCommand::List(pagination) => resolve_api_key(cli.api_key).and_then(|api_key| {
                 client::list_routines(
@@ -270,6 +397,8 @@ fn execute_mutation(
         ("workouts", None) => client::create_workout(&api_key, &payload),
         ("routines", Some(routine_id)) => client::update_routine(&api_key, &routine_id, &payload),
         ("routines", None) => client::create_routine(&api_key, &payload),
+        ("exercise_templates", None) => client::create_exercise_template(&api_key, &payload),
+        ("routine_folders", None) => client::create_routine_folder(&api_key, &payload),
         _ => unreachable!("all mutation resources are known"),
     }
 }

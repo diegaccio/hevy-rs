@@ -43,6 +43,14 @@ pub fn create_routine(api_key: &str, payload: &Value) -> Result<Value, AppError>
     mutate_resource(api_key, "routines", None, payload)
 }
 
+pub fn create_exercise_template(api_key: &str, payload: &Value) -> Result<Value, AppError> {
+    mutate_resource(api_key, "exercise_templates", None, payload)
+}
+
+pub fn create_routine_folder(api_key: &str, payload: &Value) -> Result<Value, AppError> {
+    mutate_resource(api_key, "routine_folders", None, payload)
+}
+
 pub fn update_routine(api_key: &str, routine_id: &str, payload: &Value) -> Result<Value, AppError> {
     mutate_resource(api_key, "routines", Some(routine_id), payload)
 }
@@ -90,6 +98,62 @@ pub fn get_routine(api_key: &str, routine_id: &str) -> Result<Value, AppError> {
 
 pub fn get_workout(api_key: &str, workout_id: &str) -> Result<Value, AppError> {
     get_resource(api_key, "workouts", workout_id)
+}
+
+pub fn list_exercise_templates(api_key: &str, pagination: Pagination) -> Result<Value, AppError> {
+    list_paginated(
+        api_key,
+        "/v1/exercise_templates",
+        pagination,
+        "exercise_templates",
+        None,
+    )
+}
+
+pub fn get_exercise_template(api_key: &str, exercise_template_id: &str) -> Result<Value, AppError> {
+    get_resource(api_key, "exercise_templates", exercise_template_id)
+}
+
+pub fn list_routine_folders(api_key: &str, pagination: Pagination) -> Result<Value, AppError> {
+    list_paginated(
+        api_key,
+        "/v1/routine_folders",
+        pagination,
+        "routine_folders",
+        None,
+    )
+}
+
+pub fn get_routine_folder(api_key: &str, folder_id: &str) -> Result<Value, AppError> {
+    get_resource(api_key, "routine_folders", folder_id)
+}
+
+pub fn get_exercise_history(
+    api_key: &str,
+    exercise_template_id: &str,
+    start: Option<&str>,
+    end: Option<&str>,
+) -> Result<Value, AppError> {
+    let base_url =
+        env::var("HEVY_API_BASE_URL").unwrap_or_else(|_| DEFAULT_API_BASE_URL.to_owned());
+    let mut url = reqwest::Url::parse(&base_url)
+        .map_err(|_| AppError::transport("Could not construct the Hevy API request."))?;
+    url.path_segments_mut()
+        .map_err(|_| AppError::transport("Could not construct the Hevy API request."))?
+        .extend(["v1", "exercise_history", exercise_template_id]);
+    {
+        let mut query = url.query_pairs_mut();
+        if let Some(start) = start {
+            query.append_pair("start_date", start);
+        }
+        if let Some(end) = end {
+            query.append_pair("end_date", end);
+        }
+    }
+    let client = Client::builder()
+        .build()
+        .map_err(|_| AppError::transport("Could not initialize the HTTP client."))?;
+    response_to_json(send_read_with_retries(&client, url.as_str(), api_key)?)
 }
 
 fn get_resource(api_key: &str, resource: &str, resource_id: &str) -> Result<Value, AppError> {

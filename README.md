@@ -2,7 +2,7 @@
 
 A Rust command-line interface for the [Hevy API](https://api.hevyapp.com/docs/).
 
-> **Status:** Early development. Authenticated user lookup, workout commands, and routine management are supported.
+> **Status:** Early development. Authenticated user lookup, workout, routine, exercise-template, routine-folder, and exercise-history commands are supported.
 
 ## Build and first read
 
@@ -242,6 +242,28 @@ Routine reads and mutations return the Hevy API response, including the created 
 Routine creates and updates accept `--data` as inline JSON, `@path`, or `-` for standard input. Use `--dry-run` to inspect the redacted request without sending it. A 4xx/5xx response reports a known API failure. Do not retry a routine mutation after a transport failure: its outcome is unknown, so retrieve and reconcile the affected routine first.
 
 Use `--dry-run` with workout mutations to validate the JSON and inspect the redacted intended request without sending it. Do not repeat a workout mutation after a transport failure: its outcome is unknown; retrieve and reconcile the affected workout first.
+
+## Training resources
+
+Discover or create reusable exercise templates and organize routines in folders:
+
+```sh
+hevy-rs exercise-templates list --page-size 100
+hevy-rs exercise-templates get <exercise-template-id>
+hevy-rs exercise-templates create --data @exercise-template.json
+hevy-rs routine-folders list
+hevy-rs routine-folders get <folder-id>
+hevy-rs routine-folders create --data '{"routine_folder":{"title":"Strength"}}'
+```
+
+Exercise-template lists accept `--page`, `--page-size` (1–100), and `--all`; routine-folder lists accept the same options with page sizes from 1–10. As with other collection commands, `--all` cannot be combined with `--page`.
+
+Retrieve a template's documented exercise history, optionally constrained to an ISO-8601 time window:
+
+```sh
+hevy-rs exercise-history get <exercise-template-id> \
+  --start 2025-01-01T00:00:00Z --end 2025-01-31T23:59:59Z
+```
 
 The CLI sends `GET /v1/user/info` and documented workout and routine requests with the API key in Hevy's
 `api-key` header. It never prints the key in diagnostics. `--format json` writes errors to stderr and uses exit status 2 for invocation
