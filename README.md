@@ -87,11 +87,39 @@ Page: 1 of 1
 
 Create or replace a workout with its complete API-shaped JSON body. `--data` accepts inline JSON, `@path` for a JSON file, or `-` for standard input:
 
+Replace the exercise-template IDs with your existing Hevy template IDs. This example creates a workout with two exercises; use `--dry-run` first to review it without sending it:
+
 ```sh
-hevy-rs workouts create --data '{"title":"Morning","exercises":[]}'
-hevy-rs workouts update <workout-id> --data @workout.json
-printf '%s' '{"title":"Morning","exercises":[]}' | hevy-rs workouts create --data -
+cat <<'JSON' | hevy-rs workouts create --dry-run --data -
+{
+  "title": "Upper body",
+  "description": "",
+  "start_time": "2026-07-30T17:00:00Z",
+  "end_time": "2026-07-30T17:45:00Z",
+  "is_private": false,
+  "exercises": [
+    {
+      "exercise_template_id": "<bench-press-template-id>",
+      "title": "Bench Press (Barbell)",
+      "notes": "",
+      "sets": [
+        { "type": "normal", "weight_kg": 60, "reps": 8, "rpe": 8 }
+      ]
+    },
+    {
+      "exercise_template_id": "<barbell-row-template-id>",
+      "title": "Bent Over Row (Barbell)",
+      "notes": "",
+      "sets": [
+        { "type": "normal", "weight_kg": 50, "reps": 10, "rpe": 8 }
+      ]
+    }
+  ]
+}
+JSON
 ```
+
+After reviewing the dry run, remove `--dry-run` to create the workout. To update an existing workout, use `hevy-rs workouts update <workout-id> --data @workout.json`.
 
 Use `--dry-run` with either mutation to validate the JSON and inspect its redacted intended request without sending it. Do not repeat a mutation after a transport failure: its outcome is unknown; retrieve and reconcile the affected workout first.
 
