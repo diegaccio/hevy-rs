@@ -80,11 +80,17 @@ fn response_to_user(response: Response) -> Result<Value, AppError> {
         ));
     }
 
-    response.json().map_err(|_| {
+    let body: Value = response.json().map_err(|_| {
         AppError::api(
             "The Hevy API returned an invalid JSON response.",
             status,
             request_id,
         )
-    })
+    })?;
+
+    Ok(body
+        .get("data")
+        .filter(|data| data.is_object())
+        .cloned()
+        .unwrap_or(body))
 }

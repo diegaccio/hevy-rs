@@ -49,5 +49,10 @@ fn user_text(user: &Value) {
     };
     println!("ID: {}", field("id"));
     println!("Name: {}", field("name"));
-    println!("Email: {}", field("email"));
+    if user.get("url").and_then(Value::as_str).is_some() {
+        println!("URL: {}", field("url"));
+    }
+    if user.get("email").and_then(Value::as_str).is_some() {
+        println!("Email: {}", field("email"));
+    }
 }

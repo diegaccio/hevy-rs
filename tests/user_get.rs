@@ -4,6 +4,8 @@ use std::fs;
 use tempfile::TempDir;
 
 const USER: &str = r#"{"id":"user-123","name":"Ada Lovelace","email":"ada@example.test"}"#;
+const USER_RESPONSE: &str =
+    r#"{"data":{"id":"user-123","name":"Ada Lovelace","url":"https://hevy.com/user/ada"}}"#;
 
 fn command(server: &Server, config_home: &TempDir) -> Command {
     let mut command = Command::cargo_bin("hevy-rs").unwrap();
@@ -26,7 +28,7 @@ fn user_get_prefers_explicit_key_and_emits_stable_json() {
         .match_header("api-key", "explicit-key")
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(USER)
+        .with_body(USER_RESPONSE)
         .create();
 
     let output = command(&server, &config_home)
@@ -45,9 +47,35 @@ fn user_get_prefers_explicit_key_and_emits_stable_json() {
 
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap(),
-        serde_json::from_str::<serde_json::Value>(USER).unwrap()
+        serde_json::json!({
+            "id": "user-123",
+            "name": "Ada Lovelace",
+            "url": "https://hevy.com/user/ada"
+        })
     );
     assert!(String::from_utf8(output.stderr).unwrap().is_empty());
+    request.assert();
+}
+
+#[test]
+fn user_get_renders_user_fields_from_the_documented_data_envelope() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let request = server
+        .mock("GET", "/v1/user/info")
+        .match_header("api-key", "explicit-key")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(USER_RESPONSE)
+        .create();
+
+    command(&server, &config_home)
+        .args(["--api-key", "explicit-key", "user", "get"])
+        .assert()
+        .success()
+        .stdout("ID: user-123\nName: Ada Lovelace\nURL: https://hevy.com/user/ada\n")
+        .stderr("");
+
     request.assert();
 }
 
