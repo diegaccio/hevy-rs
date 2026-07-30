@@ -42,7 +42,9 @@ pub fn error(error: &AppError, format: OutputFormat) {
 }
 
 fn text(value: &Value) {
-    if let Some(items) = value.get("items").and_then(Value::as_array) {
+    if let Some(count) = value.get("workout_count").and_then(Value::as_u64) {
+        println!("Workout count: {count}");
+    } else if let Some(items) = value.get("items").and_then(Value::as_array) {
         println!(
             "Page: {} of {}",
             value.get("page").and_then(Value::as_u64).unwrap_or(0),

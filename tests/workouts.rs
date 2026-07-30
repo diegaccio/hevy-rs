@@ -140,6 +140,28 @@ fn workouts_count_and_get_make_documented_requests() {
 }
 
 #[test]
+fn workouts_count_has_readable_default_output() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let request = server
+        .mock("GET", "/v1/workouts/count")
+        .match_header("api-key", "api-key")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"workout_count":42}"#)
+        .create();
+
+    command(&server, &config_home)
+        .args(["--api-key", "api-key", "workouts", "count"])
+        .assert()
+        .success()
+        .stdout("Workout count: 42\n")
+        .stderr("");
+
+    request.assert();
+}
+
+#[test]
 fn workouts_events_validates_since_and_retrieves_events() {
     let mut server = Server::new();
     let config_home = TempDir::new().unwrap();
