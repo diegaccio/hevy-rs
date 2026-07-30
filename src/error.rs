@@ -39,6 +39,10 @@ impl AppError {
         }
     }
 
+    pub fn api_message(message: impl Into<String>) -> Self {
+        Self::new(4, "api", message)
+    }
+
     pub fn transport(message: impl Into<String>) -> Self {
         Self::new(5, "transport", message)
     }

@@ -2,7 +2,7 @@
 
 A Rust command-line interface for the [Hevy API](https://api.hevyapp.com/docs/).
 
-> **Status:** Early development. The first supported command is authenticated user lookup.
+> **Status:** Early development. Authenticated user lookup and workout retrieval are supported.
 
 ## Build and first read
 
@@ -37,8 +37,21 @@ configuration file at `hevy/config.toml` below your platform's native configurat
 The configuration file contains `api_key = "..."`; on Linux, create its directory and file with
 owner-only permissions (`chmod 700` for the directory and `chmod 600` for the file).
 
-The CLI sends `GET /v1/user/info` with the API key in Hevy's `api-key` header. It never prints the
-key in diagnostics. `--format json` writes errors to stderr and uses exit status 2 for invocation
+## Workouts
+
+Use the `workouts` resource commands to inspect workout data:
+
+```sh
+hevy-rs workouts list
+hevy-rs workouts count
+hevy-rs workouts get <workout-id>
+hevy-rs workouts events --since 2025-01-01T00:00:00Z
+```
+
+`list` and `events` accept `--page <n>` and `--page-size <n>` (1–10). Use `--all` to retrieve every page; it cannot be combined with `--page`. Collection JSON is normalized to `items`, `page`, and `page_count`; complete retrieval also reports `all` and `pages_fetched`.
+
+The CLI sends `GET /v1/user/info` and documented workout read requests with the API key in Hevy's
+`api-key` header. It never prints the key in diagnostics. `--format json` writes errors to stderr and uses exit status 2 for invocation
 errors, 3 for authentication errors, 4 for API errors, and 5 for transport or exhausted read retries.
 
 ## License

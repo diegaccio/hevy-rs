@@ -14,7 +14,7 @@ pub fn success(user: &Value, format: OutputFormat) {
             "{}",
             serde_json::to_string(user).expect("JSON values serialize")
         ),
-        OutputFormat::Text => user_text(user),
+        OutputFormat::Text => text(user),
     }
 }
 
@@ -38,6 +38,50 @@ pub fn error(error: &AppError, format: OutputFormat) {
                 serde_json::to_string(&output).expect("JSON values serialize")
             );
         }
+    }
+}
+
+fn text(value: &Value) {
+    if let Some(items) = value.get("items").and_then(Value::as_array) {
+        println!(
+            "Page: {} of {}",
+            value.get("page").and_then(Value::as_u64).unwrap_or(0),
+            value.get("page_count").and_then(Value::as_u64).unwrap_or(0)
+        );
+        if value.get("all") == Some(&Value::Bool(true)) {
+            let pages = value
+                .get("pages_fetched")
+                .and_then(Value::as_array)
+                .map(|pages| {
+                    pages
+                        .iter()
+                        .filter_map(Value::as_u64)
+                        .map(|page| page.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                })
+                .unwrap_or_default();
+            println!("Complete retrieval requested; pages fetched: {pages}");
+        }
+        for item in items {
+            let title = item
+                .get("title")
+                .or_else(|| item.get("id"))
+                .and_then(Value::as_str)
+                .unwrap_or("(unnamed)");
+            let id = item.get("id").and_then(Value::as_str);
+            match id {
+                Some(id) if id != title => println!("- {title} ({id})"),
+                _ => println!("- {title}"),
+            }
+        }
+    } else if value.get("name").is_some() {
+        user_text(value);
+    } else {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(value).expect("JSON values serialize")
+        );
     }
 }
 
