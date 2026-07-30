@@ -85,7 +85,17 @@ Page: 1 of 1
 
 `list` and `events` accept `--page <n>` and `--page-size <n>` (1–10). Use `--all` to retrieve every page; it cannot be combined with `--page`. Collection JSON is normalized to `items`, `page`, and `page_count`; complete retrieval also reports `all` and `pages_fetched`.
 
-The CLI sends `GET /v1/user/info` and documented workout read requests with the API key in Hevy's
+Create or replace a workout with its complete API-shaped JSON body. `--data` accepts inline JSON, `@path` for a JSON file, or `-` for standard input:
+
+```sh
+hevy-rs workouts create --data '{"title":"Morning","exercises":[]}'
+hevy-rs workouts update <workout-id> --data @workout.json
+printf '%s' '{"title":"Morning","exercises":[]}' | hevy-rs workouts create --data -
+```
+
+Use `--dry-run` with either mutation to validate the JSON and inspect its redacted intended request without sending it. Do not repeat a mutation after a transport failure: its outcome is unknown; retrieve and reconcile the affected workout first.
+
+The CLI sends `GET /v1/user/info` and documented workout requests with the API key in Hevy's
 `api-key` header. It never prints the key in diagnostics. `--format json` writes errors to stderr and uses exit status 2 for invocation
 errors, 3 for authentication errors, 4 for API errors, and 5 for transport or exhausted read retries.
 

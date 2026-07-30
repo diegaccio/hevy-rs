@@ -6,7 +6,11 @@ use clap::{Args, Parser, Subcommand};
 use error::AppError;
 use render::OutputFormat;
 use serde::Deserialize;
-use std::{env, fs, process};
+use std::{
+    env, fs,
+    io::{self, Read},
+    process,
+};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 #[derive(Parser)]
@@ -64,6 +68,30 @@ enum WorkoutCommand {
         #[arg(long, value_parser = parse_iso8601)]
         since: Option<String>,
     },
+    /// Create a workout from a complete API-shaped JSON payload.
+    Create(MutationArgs),
+    /// Replace a workout with a complete API-shaped JSON payload.
+    Update {
+        /// Workout identifier.
+        workout_id: String,
+        #[command(flatten)]
+        mutation: MutationArgs,
+    },
+}
+
+#[derive(Args)]
+struct MutationArgs {
+    /// Complete API-shaped JSON payload, a file path prefixed with @, or - for standard input.
+    #[arg(long)]
+    data: String,
+
+    /// Validate and display the intended request without sending it.
+    #[arg(long)]
+    dry_run: bool,
+
+    /// Confirm an irreversible operation when one is available.
+    #[arg(long)]
+    yes: bool,
 }
 
 #[derive(Args)]
@@ -100,37 +128,140 @@ fn main() {
     };
 
     let format = cli.format;
-    let result = resolve_api_key(cli.api_key).and_then(|api_key| match cli.command {
+    let result = match cli.command {
         Command::User {
             command: UserCommand::Get,
-        } => client::get_user(&api_key),
+        } => resolve_api_key(cli.api_key).and_then(|api_key| client::get_user(&api_key)),
         Command::Workouts { command } => match command {
-            WorkoutCommand::List(pagination) => client::list_workouts(
-                &api_key,
-                client::Pagination {
-                    page: pagination.page,
-                    page_size: pagination.page_size,
-                    all: pagination.all,
-                },
-            ),
-            WorkoutCommand::Count => client::get_workout_count(&api_key),
-            WorkoutCommand::Get { workout_id } => client::get_workout(&api_key, &workout_id),
-            WorkoutCommand::Events { pagination, since } => client::list_workout_events(
-                &api_key,
-                client::Pagination {
-                    page: pagination.page,
-                    page_size: pagination.page_size,
-                    all: pagination.all,
-                },
-                since.as_deref(),
-            ),
+            WorkoutCommand::List(pagination) => resolve_api_key(cli.api_key).and_then(|api_key| {
+                client::list_workouts(
+                    &api_key,
+                    client::Pagination {
+                        page: pagination.page,
+                        page_size: pagination.page_size,
+                        all: pagination.all,
+                    },
+                )
+            }),
+            WorkoutCommand::Count => {
+                resolve_api_key(cli.api_key).and_then(|api_key| client::get_workout_count(&api_key))
+            }
+            WorkoutCommand::Get { workout_id } => resolve_api_key(cli.api_key)
+                .and_then(|api_key| client::get_workout(&api_key, &workout_id)),
+            WorkoutCommand::Events { pagination, since } => {
+                resolve_api_key(cli.api_key).and_then(|api_key| {
+                    client::list_workout_events(
+                        &api_key,
+                        client::Pagination {
+                            page: pagination.page,
+                            page_size: pagination.page_size,
+                            all: pagination.all,
+                        },
+                        since.as_deref(),
+                    )
+                })
+            }
+            WorkoutCommand::Create(mutation) => {
+                execute_workout_mutation(cli.api_key, None, mutation)
+            }
+            WorkoutCommand::Update {
+                workout_id,
+                mutation,
+            } => execute_workout_mutation(cli.api_key, Some(workout_id), mutation),
         },
-    });
+    };
 
     match result {
         Ok(user) => render::success(&user, format),
         Err(error) => exit_with(error, format),
     }
+}
+
+fn execute_workout_mutation(
+    explicit_api_key: Option<String>,
+    workout_id: Option<String>,
+    mutation: MutationArgs,
+) -> Result<serde_json::Value, AppError> {
+    if mutation.dry_run && mutation.yes {
+        return Err(AppError::invocation(
+            "--dry-run cannot be combined with --yes.",
+        ));
+    }
+
+    let payload = read_payload(&mutation.data)?;
+    if mutation.dry_run {
+        return Ok(dry_run_output(workout_id.as_deref(), payload));
+    }
+
+    let api_key = resolve_api_key(explicit_api_key)?;
+    match workout_id {
+        Some(workout_id) => client::update_workout(&api_key, &workout_id, &payload),
+        None => client::create_workout(&api_key, &payload),
+    }
+}
+
+fn read_payload(source: &str) -> Result<serde_json::Value, AppError> {
+    let content = if source == "-" {
+        let mut content = String::new();
+        io::stdin().read_to_string(&mut content).map_err(|_| {
+            AppError::invocation("Could not read JSON payload from standard input.")
+        })?;
+        content
+    } else if let Some(path) = source.strip_prefix('@') {
+        fs::read_to_string(path)
+            .map_err(|_| AppError::invocation("Could not read the JSON payload file."))?
+    } else {
+        source.to_owned()
+    };
+
+    serde_json::from_str(&content)
+        .map_err(|_| AppError::invocation("--data must contain valid JSON."))
+}
+
+fn dry_run_output(workout_id: Option<&str>, payload: serde_json::Value) -> serde_json::Value {
+    let (method, path, affected_resource) = match workout_id {
+        Some(workout_id) => (
+            "PUT",
+            format!("/v1/workouts/{workout_id}"),
+            workout_id.to_owned(),
+        ),
+        None => ("POST", "/v1/workouts".to_owned(), "new workout".to_owned()),
+    };
+
+    serde_json::json!({
+        "dry_run": true,
+        "affected_resource": affected_resource,
+        "request": {
+            "method": method,
+            "path": path,
+            "body": redact_secrets(payload),
+        }
+    })
+}
+
+fn redact_secrets(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(fields) => fields
+            .into_iter()
+            .map(|(name, value)| {
+                let value = if is_secret_field(&name) {
+                    serde_json::Value::String("[REDACTED]".to_owned())
+                } else {
+                    redact_secrets(value)
+                };
+                (name, value)
+            })
+            .collect(),
+        serde_json::Value::Array(items) => items.into_iter().map(redact_secrets).collect(),
+        value => value,
+    }
+}
+
+fn is_secret_field(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "api_key" | "apikey" | "authorization" | "password" | "token" | "secret"
+    )
 }
 
 fn exit_with(error: AppError, format: OutputFormat) -> ! {

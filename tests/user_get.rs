@@ -10,6 +10,7 @@ const USER_RESPONSE: &str =
 fn command(server: &Server, config_home: &TempDir) -> Command {
     let mut command = Command::cargo_bin("hevy-rs").unwrap();
     command
+        .env_remove("HEVY_API_KEY")
         .env("HEVY_API_BASE_URL", server.url())
         .env("HEVY_CONFIG_DIR", config_home.path())
         .env("XDG_CONFIG_HOME", config_home.path())

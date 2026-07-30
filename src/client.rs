@@ -31,6 +31,43 @@ pub fn get_workout_count(api_key: &str) -> Result<Value, AppError> {
     get_read_value(api_key, "/v1/workouts/count")
 }
 
+pub fn create_workout(api_key: &str, payload: &Value) -> Result<Value, AppError> {
+    mutate_workout(api_key, None, payload)
+}
+
+pub fn update_workout(api_key: &str, workout_id: &str, payload: &Value) -> Result<Value, AppError> {
+    mutate_workout(api_key, Some(workout_id), payload)
+}
+
+fn mutate_workout(
+    api_key: &str,
+    workout_id: Option<&str>,
+    payload: &Value,
+) -> Result<Value, AppError> {
+    let base_url =
+        env::var("HEVY_API_BASE_URL").unwrap_or_else(|_| DEFAULT_API_BASE_URL.to_owned());
+    let mut url = reqwest::Url::parse(&base_url)
+        .map_err(|_| AppError::transport("Could not construct the Hevy API request."))?;
+    let mut segments = vec!["v1", "workouts"];
+    if let Some(workout_id) = workout_id {
+        segments.push(workout_id);
+    }
+    url.path_segments_mut()
+        .map_err(|_| AppError::transport("Could not construct the Hevy API request."))?
+        .extend(segments);
+    let client = Client::builder()
+        .build()
+        .map_err(|_| AppError::transport("Could not initialize the HTTP client."))?;
+    let request = match workout_id {
+        Some(_) => client.put(url).header("api-key", api_key).json(payload),
+        None => client.post(url).header("api-key", api_key).json(payload),
+    };
+    let response = request.send().map_err(|_| {
+        AppError::transport("The workout mutation outcome is unknown. Reconcile the affected workout before retrying.")
+    })?;
+    response_to_json(response)
+}
+
 pub fn get_workout(api_key: &str, workout_id: &str) -> Result<Value, AppError> {
     let base_url =
         env::var("HEVY_API_BASE_URL").unwrap_or_else(|_| DEFAULT_API_BASE_URL.to_owned());
