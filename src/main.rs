@@ -11,7 +11,7 @@ use std::{
     io::{self, Read},
     process,
 };
-use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+use time::{Date, OffsetDateTime, format_description::well_known::Rfc3339};
 
 #[derive(Parser)]
 #[command(
@@ -63,6 +63,11 @@ enum Command {
     ExerciseHistory {
         #[command(subcommand)]
         command: ExerciseHistoryCommand,
+    },
+    /// Commands for dated body measurements.
+    BodyMeasurements {
+        #[command(subcommand)]
+        command: BodyMeasurementCommand,
     },
 }
 
@@ -121,6 +126,28 @@ enum ExerciseHistoryCommand {
         /// Include history on or before this ISO-8601 timestamp.
         #[arg(long, value_parser = parse_iso8601)]
         end: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum BodyMeasurementCommand {
+    /// List body measurements.
+    List(PaginationArgs),
+    /// Retrieve a body measurement by date.
+    Get {
+        /// Measurement date in YYYY-MM-DD form.
+        #[arg(value_parser = parse_date)]
+        date: String,
+    },
+    /// Create a body measurement from a complete API-shaped JSON payload.
+    Create(MutationArgs),
+    /// Replace a body measurement with a complete API-shaped JSON payload.
+    Update {
+        /// Measurement date in YYYY-MM-DD form.
+        #[arg(value_parser = parse_date)]
+        date: String,
+        #[command(flatten)]
+        mutation: MutationArgs,
     },
 }
 
@@ -333,6 +360,36 @@ fn main() {
                 )
             }),
         },
+        Command::BodyMeasurements { command } => match command {
+            BodyMeasurementCommand::List(pagination) => {
+                resolve_api_key(cli.api_key).and_then(|api_key| {
+                    client::list_body_measurements(
+                        &api_key,
+                        client::Pagination {
+                            page: pagination.page,
+                            page_size: pagination.page_size,
+                            all: pagination.all,
+                        },
+                    )
+                })
+            }
+            BodyMeasurementCommand::Get { date } => resolve_api_key(cli.api_key)
+                .and_then(|api_key| client::get_body_measurement(&api_key, &date)),
+            BodyMeasurementCommand::Create(mutation) => execute_mutation(
+                cli.api_key,
+                "body_measurements",
+                "body measurement",
+                None,
+                mutation,
+            ),
+            BodyMeasurementCommand::Update { date, mutation } => execute_mutation(
+                cli.api_key,
+                "body_measurements",
+                "body measurement",
+                Some(date),
+                mutation,
+            ),
+        },
         Command::Routines { command } => match command {
             RoutineCommand::List(pagination) => resolve_api_key(cli.api_key).and_then(|api_key| {
                 client::list_routines(
@@ -399,6 +456,10 @@ fn execute_mutation(
         ("routines", None) => client::create_routine(&api_key, &payload),
         ("exercise_templates", None) => client::create_exercise_template(&api_key, &payload),
         ("routine_folders", None) => client::create_routine_folder(&api_key, &payload),
+        ("body_measurements", Some(date)) => {
+            client::update_body_measurement(&api_key, &date, &payload)
+        }
+        ("body_measurements", None) => client::create_body_measurement(&api_key, &payload),
         _ => unreachable!("all mutation resources are known"),
     }
 }
@@ -487,6 +548,14 @@ fn requests_json_output() -> bool {
         || arguments
             .windows(2)
             .any(|arguments| arguments == ["--format", "json"])
+}
+
+fn parse_date(value: &str) -> Result<String, String> {
+    let format = time::format_description::parse_borrowed::<3>("[year]-[month]-[day]")
+        .expect("the date format description is valid");
+    Date::parse(value, &format)
+        .map(|_| value.to_owned())
+        .map_err(|_| "must be a valid date in YYYY-MM-DD form, such as 2025-01-15".to_owned())
 }
 
 fn parse_iso8601(value: &str) -> Result<String, String> {

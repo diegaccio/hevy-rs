@@ -2,7 +2,7 @@
 
 A Rust command-line interface for the [Hevy API](https://api.hevyapp.com/docs/).
 
-> **Status:** Early development. Authenticated user lookup, workout, routine, exercise-template, routine-folder, and exercise-history commands are supported.
+> **Status:** Early development. Authenticated user lookup, workout, routine, exercise-template, routine-folder, exercise-history, and body-measurement commands are supported.
 
 ## Build and first read
 
@@ -238,6 +238,31 @@ hevy-rs --format json routines update <routine-id> --data @updated-routine.json
 ```
 
 Routine reads and mutations return the Hevy API response, including the created or updated routine ID. Keep that ID to retrieve and reconcile the routine after a write.
+
+## Body measurements
+
+Use dated body measurements to track entries such as weight or body-fat percentage:
+
+```sh
+hevy-rs body-measurements list
+hevy-rs body-measurements get 2025-01-15
+hevy-rs body-measurements create --data @measurement.json
+hevy-rs body-measurements update 2025-01-15 --data @replacement.json
+```
+
+`list` accepts `--page <n>` and `--page-size <n>` (1–10), or `--all` for explicit complete retrieval; `--all` cannot be combined with `--page`. The date identifier must be a real date in `YYYY-MM-DD` form.
+
+Create a new entry with a complete API-shaped body:
+
+```json
+{
+  "date": "2025-01-15",
+  "weight_kg": 80.5,
+  "body_fat_percentage": 18.2
+}
+```
+
+Creation fails if an entry already exists for that date. Retrieve that entry and use `update` instead. An update is a **full replacement**: every omitted measurement field is set to `null`. Retrieve the current entry first, preserve all values you intend to keep, and send explicit `null` values only for values you mean to clear. Use `--dry-run` to review the exact create or replacement request before sending it.
 
 Routine creates and updates accept `--data` as inline JSON, `@path`, or `-` for standard input. Use `--dry-run` to inspect the redacted request without sending it. A 4xx/5xx response reports a known API failure. Do not retry a routine mutation after a transport failure: its outcome is unknown, so retrieve and reconcile the affected routine first.
 

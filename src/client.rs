@@ -43,6 +43,18 @@ pub fn create_routine(api_key: &str, payload: &Value) -> Result<Value, AppError>
     mutate_resource(api_key, "routines", None, payload)
 }
 
+pub fn create_body_measurement(api_key: &str, payload: &Value) -> Result<Value, AppError> {
+    mutate_resource(api_key, "body_measurements", None, payload)
+}
+
+pub fn update_body_measurement(
+    api_key: &str,
+    date: &str,
+    payload: &Value,
+) -> Result<Value, AppError> {
+    mutate_resource(api_key, "body_measurements", Some(date), payload)
+}
+
 pub fn create_exercise_template(api_key: &str, payload: &Value) -> Result<Value, AppError> {
     mutate_resource(api_key, "exercise_templates", None, payload)
 }
@@ -85,11 +97,32 @@ fn mutate_resource(
             "The {resource_name} mutation outcome is unknown. Reconcile the affected {resource_name} before retrying."
         ))
     })?;
+    if resource == "body_measurements" && response.status() == StatusCode::CONFLICT {
+        return Err(AppError::api(
+            "A body measurement already exists for that date. Retrieve it and use update to replace all measurement fields.",
+            response.status(),
+            request_id(&response),
+        ));
+    }
     response_to_json(response)
 }
 
 pub fn list_routines(api_key: &str, pagination: Pagination) -> Result<Value, AppError> {
     list_paginated(api_key, "/v1/routines", pagination, "routines", None)
+}
+
+pub fn list_body_measurements(api_key: &str, pagination: Pagination) -> Result<Value, AppError> {
+    list_paginated(
+        api_key,
+        "/v1/body_measurements",
+        pagination,
+        "body_measurements",
+        None,
+    )
+}
+
+pub fn get_body_measurement(api_key: &str, date: &str) -> Result<Value, AppError> {
+    get_resource(api_key, "body_measurements", date)
 }
 
 pub fn get_routine(api_key: &str, routine_id: &str) -> Result<Value, AppError> {

@@ -97,6 +97,7 @@ fn resource_text(prefix: &str, resource: &Value) {
     let title = resource
         .get("title")
         .or_else(|| resource.get("id"))
+        .or_else(|| resource.get("date"))
         .and_then(Value::as_str)
         .unwrap_or("(unnamed)");
     let id = resource.get("id").and_then(|value| match value {
