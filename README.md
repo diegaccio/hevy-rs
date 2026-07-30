@@ -167,9 +167,22 @@ JSON
 
 Use your own workout and exercise-template IDs, and dry-run the exact payload before sending it.
 
+## Routines
+
+Use the `routines` resource commands to manage training plans:
+
+```sh
+hevy-rs routines list
+hevy-rs routines get <routine-id>
+hevy-rs routines create --data @routine.json
+hevy-rs routines update <routine-id> --data @routine.json
+```
+
+`list` accepts `--page <n>` and `--page-size <n>` (1–10), or `--all` for explicit complete retrieval; `--all` cannot be combined with `--page`. Routine creates and updates accept complete API-shaped JSON through `--data` as inline JSON, `@path`, or `-` for standard input. Use `--dry-run` to inspect the redacted request without sending it. Do not retry a routine mutation after a transport failure: retrieve and reconcile the affected routine first.
+
 Use `--dry-run` with either mutation to validate the JSON and inspect its redacted intended request without sending it. Do not repeat a mutation after a transport failure: its outcome is unknown; retrieve and reconcile the affected workout first.
 
-The CLI sends `GET /v1/user/info` and documented workout requests with the API key in Hevy's
+The CLI sends `GET /v1/user/info` and documented workout and routine requests with the API key in Hevy's
 `api-key` header. It never prints the key in diagnostics. `--format json` writes errors to stderr and uses exit status 2 for invocation
 errors, 3 for authentication errors, 4 for API errors, and 5 for transport or exhausted read retries.
 

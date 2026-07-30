@@ -2,7 +2,7 @@ mod client;
 mod error;
 mod render;
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, error::ErrorKind};
 use error::AppError;
 use render::OutputFormat;
 use serde::Deserialize;
@@ -21,7 +21,7 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 )]
 struct Cli {
     /// API key. Prefer HEVY_API_KEY or the per-user configuration file in automation.
-    #[arg(long, env = "HEVY_API_KEY", global = true)]
+    #[arg(long, env = "HEVY_API_KEY", hide_env_values = true, global = true)]
     api_key: Option<String>,
 
     /// Output format.
@@ -44,12 +44,34 @@ enum Command {
         #[command(subcommand)]
         command: WorkoutCommand,
     },
+    /// Commands for routines.
+    Routines {
+        #[command(subcommand)]
+        command: RoutineCommand,
+    },
 }
 
 #[derive(Subcommand)]
 enum UserCommand {
     /// Retrieve the authenticated user's information.
     Get,
+}
+
+#[derive(Subcommand)]
+enum RoutineCommand {
+    /// List routines.
+    List(PaginationArgs),
+    /// Retrieve a routine's complete details.
+    Get { routine_id: String },
+    /// Create a routine from a complete API-shaped JSON payload.
+    Create(MutationArgs),
+    /// Replace a routine with a complete API-shaped JSON payload.
+    Update {
+        /// Routine identifier.
+        routine_id: String,
+        #[command(flatten)]
+        mutation: MutationArgs,
+    },
 }
 
 #[derive(Subcommand)]
@@ -100,7 +122,7 @@ struct PaginationArgs {
     #[arg(long, value_parser = clap::value_parser!(u32).range(1..), conflicts_with = "all")]
     page: Option<u32>,
 
-    /// Number of items per page (maximum 10 for workouts).
+    /// Number of items per page (maximum 10 for workouts and routines).
     #[arg(long, value_parser = clap::value_parser!(u32).range(1..=10))]
     page_size: Option<u32>,
 
@@ -117,6 +139,15 @@ struct Config {
 fn main() {
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
+        Err(error)
+            if matches!(
+                error.kind(),
+                ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
+            ) =>
+        {
+            error.print().expect("help output is writable");
+            process::exit(0);
+        }
         Err(error) => exit_with(
             AppError::invocation(error.to_string()),
             if requests_json_output() {
@@ -162,12 +193,45 @@ fn main() {
                 })
             }
             WorkoutCommand::Create(mutation) => {
-                execute_workout_mutation(cli.api_key, None, mutation)
+                execute_mutation(cli.api_key, "workouts", "workout", None, mutation)
             }
             WorkoutCommand::Update {
                 workout_id,
                 mutation,
-            } => execute_workout_mutation(cli.api_key, Some(workout_id), mutation),
+            } => execute_mutation(
+                cli.api_key,
+                "workouts",
+                "workout",
+                Some(workout_id),
+                mutation,
+            ),
+        },
+        Command::Routines { command } => match command {
+            RoutineCommand::List(pagination) => resolve_api_key(cli.api_key).and_then(|api_key| {
+                client::list_routines(
+                    &api_key,
+                    client::Pagination {
+                        page: pagination.page,
+                        page_size: pagination.page_size,
+                        all: pagination.all,
+                    },
+                )
+            }),
+            RoutineCommand::Get { routine_id } => resolve_api_key(cli.api_key)
+                .and_then(|api_key| client::get_routine(&api_key, &routine_id)),
+            RoutineCommand::Create(mutation) => {
+                execute_mutation(cli.api_key, "routines", "routine", None, mutation)
+            }
+            RoutineCommand::Update {
+                routine_id,
+                mutation,
+            } => execute_mutation(
+                cli.api_key,
+                "routines",
+                "routine",
+                Some(routine_id),
+                mutation,
+            ),
         },
     };
 
@@ -177,9 +241,11 @@ fn main() {
     }
 }
 
-fn execute_workout_mutation(
+fn execute_mutation(
     explicit_api_key: Option<String>,
-    workout_id: Option<String>,
+    resource_path: &str,
+    resource_name: &str,
+    resource_id: Option<String>,
     mutation: MutationArgs,
 ) -> Result<serde_json::Value, AppError> {
     if mutation.dry_run && mutation.yes {
@@ -190,13 +256,21 @@ fn execute_workout_mutation(
 
     let payload = read_payload(&mutation.data)?;
     if mutation.dry_run {
-        return Ok(dry_run_output(workout_id.as_deref(), payload));
+        return Ok(dry_run_output(
+            resource_path,
+            resource_name,
+            resource_id.as_deref(),
+            payload,
+        ));
     }
 
     let api_key = resolve_api_key(explicit_api_key)?;
-    match workout_id {
-        Some(workout_id) => client::update_workout(&api_key, &workout_id, &payload),
-        None => client::create_workout(&api_key, &payload),
+    match (resource_path, resource_id) {
+        ("workouts", Some(workout_id)) => client::update_workout(&api_key, &workout_id, &payload),
+        ("workouts", None) => client::create_workout(&api_key, &payload),
+        ("routines", Some(routine_id)) => client::update_routine(&api_key, &routine_id, &payload),
+        ("routines", None) => client::create_routine(&api_key, &payload),
+        _ => unreachable!("all mutation resources are known"),
     }
 }
 
@@ -218,14 +292,23 @@ fn read_payload(source: &str) -> Result<serde_json::Value, AppError> {
         .map_err(|_| AppError::invocation("--data must contain valid JSON."))
 }
 
-fn dry_run_output(workout_id: Option<&str>, payload: serde_json::Value) -> serde_json::Value {
-    let (method, path, affected_resource) = match workout_id {
-        Some(workout_id) => (
+fn dry_run_output(
+    resource_path: &str,
+    resource_name: &str,
+    resource_id: Option<&str>,
+    payload: serde_json::Value,
+) -> serde_json::Value {
+    let (method, path, affected_resource) = match resource_id {
+        Some(resource_id) => (
             "PUT",
-            format!("/v1/workouts/{workout_id}"),
-            workout_id.to_owned(),
+            format!("/v1/{resource_path}/{resource_id}"),
+            resource_id.to_owned(),
         ),
-        None => ("POST", "/v1/workouts".to_owned(), "new workout".to_owned()),
+        None => (
+            "POST",
+            format!("/v1/{resource_path}"),
+            format!("new {resource_name}"),
+        ),
     };
 
     serde_json::json!({

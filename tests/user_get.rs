@@ -21,6 +21,25 @@ fn command(server: &Server, config_home: &TempDir) -> Command {
 }
 
 #[test]
+fn help_does_not_expose_the_environment_api_key() {
+    let output = Command::cargo_bin("hevy-rs")
+        .unwrap()
+        .env("HEVY_API_KEY", "very-secret-key")
+        .args(["--help"])
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+
+    assert!(
+        !String::from_utf8(output.stdout)
+            .unwrap()
+            .contains("very-secret-key")
+    );
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
 fn user_get_prefers_explicit_key_and_emits_stable_json() {
     let mut server = Server::new();
     let config_home = TempDir::new().unwrap();
