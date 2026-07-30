@@ -132,14 +132,14 @@ fn body_measurement_list_has_readable_default_output() {
         .match_header("api-key", "api-key")
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(r#"{"page":1,"page_count":1,"body_measurements":[{"date":"2025-01-15","weight_kg":80.5}]}"#)
+        .with_body(r#"{"page":1,"page_count":1,"body_measurements":[{"id":"measurement-1","date":"2025-01-15","weight_kg":80.5}]}"#)
         .create();
 
     command(&server, &config_home)
         .args(["--api-key", "api-key", "body-measurements", "list"])
         .assert()
         .success()
-        .stdout("Page: 1 of 1\n- 2025-01-15\n")
+        .stdout("Page: 1 of 1\n- measurement-1 (2025-01-15)\n")
         .stderr("");
 
     request.assert();

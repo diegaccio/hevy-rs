@@ -94,17 +94,22 @@ fn collection_item_text(item: &Value) {
 }
 
 fn resource_text(prefix: &str, resource: &Value) {
+    let id = resource.get("id").and_then(|value| match value {
+        Value::String(id) => Some(id.clone()),
+        Value::Number(id) => Some(id.to_string()),
+        _ => None,
+    });
+    if let (Some(id), Some(date)) = (id.as_deref(), resource.get("date").and_then(Value::as_str)) {
+        println!("{prefix}{id} ({date})");
+        return;
+    }
+
     let title = resource
         .get("title")
         .or_else(|| resource.get("id"))
         .or_else(|| resource.get("date"))
         .and_then(Value::as_str)
         .unwrap_or("(unnamed)");
-    let id = resource.get("id").and_then(|value| match value {
-        Value::String(id) => Some(id.clone()),
-        Value::Number(id) => Some(id.to_string()),
-        _ => None,
-    });
     match id.as_deref() {
         Some(id) if id != title => println!("{prefix}{title} ({id})"),
         _ => println!("{prefix}{title}"),
