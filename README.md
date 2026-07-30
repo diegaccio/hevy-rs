@@ -48,6 +48,41 @@ hevy-rs workouts get <workout-id>
 hevy-rs workouts events --since 2025-01-01T00:00:00Z
 ```
 
+Example list output:
+
+```text
+Page: 1 of 1
+- A - Lower strength + upper pull (0c00f518-81ea-4715-a68f-e12a6b2da836)
+- Gym test (9e8d4c7c-9a32-452a-a69d-cf1b21c9ceb2)
+```
+
+Example count output:
+
+```text
+Workout count: 42
+```
+
+A workout lookup summarizes the workout and its exercises by default:
+
+```text
+ID: 0c00f518-81ea-4715-a68f-e12a6b2da836
+Title: A - Lower strength + upper pull
+Started: 2026-07-30T05:42:48+00:00
+Ended: 2026-07-30T06:52:52+00:00
+Exercises:
+- Box Jump (3 sets)
+- Squat (Barbell) (4 sets)
+- Bent Over Row (Barbell) (4 sets)
+```
+
+Workout events identify updates and deletions:
+
+```text
+Page: 1 of 1
+- Updated: A - Lower strength + upper pull (0c00f518-81ea-4715-a68f-e12a6b2da836)
+- Deleted: 9e8d4c7c-9a32-452a-a69d-cf1b21c9ceb2
+```
+
 `list` and `events` accept `--page <n>` and `--page-size <n>` (1–10). Use `--all` to retrieve every page; it cannot be combined with `--page`. Collection JSON is normalized to `items`, `page`, and `page_count`; complete retrieval also reports `all` and `pages_fetched`.
 
 The CLI sends `GET /v1/user/info` and documented workout read requests with the API key in Hevy's
