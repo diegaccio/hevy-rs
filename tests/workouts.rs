@@ -213,6 +213,28 @@ fn workouts_events_validates_since_and_retrieves_events() {
 }
 
 #[test]
+fn workout_events_render_updated_and_deleted_workouts_readably() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let request = server
+        .mock("GET", "/v1/workouts/events")
+        .match_header("api-key", "api-key")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"page":1,"page_count":1,"events":[{"type":"updated","workout":{"id":"workout-1","title":"Lower body"}},{"type":"deleted","id":"workout-2"}]}"#)
+        .create();
+
+    command(&server, &config_home)
+        .args(["--api-key", "api-key", "workouts", "events"])
+        .assert()
+        .success()
+        .stdout("Page: 1 of 1\n- Updated: Lower body (workout-1)\n- Deleted: workout-2\n")
+        .stderr("");
+
+    request.assert();
+}
+
+#[test]
 fn workouts_all_retrieves_every_page_and_rejects_an_explicit_page() {
     let mut server = Server::new();
     let config_home = TempDir::new().unwrap();

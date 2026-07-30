@@ -66,16 +66,7 @@ fn text(value: &Value) {
             println!("Complete retrieval requested; pages fetched: {pages}");
         }
         for item in items {
-            let title = item
-                .get("title")
-                .or_else(|| item.get("id"))
-                .and_then(Value::as_str)
-                .unwrap_or("(unnamed)");
-            let id = item.get("id").and_then(Value::as_str);
-            match id {
-                Some(id) if id != title => println!("- {title} ({id})"),
-                _ => println!("- {title}"),
-            }
+            collection_item_text(item);
         }
     } else if value.get("name").is_some() {
         user_text(value);
@@ -84,6 +75,32 @@ fn text(value: &Value) {
             "{}",
             serde_json::to_string_pretty(value).expect("JSON values serialize")
         );
+    }
+}
+
+fn collection_item_text(item: &Value) {
+    match item.get("type").and_then(Value::as_str) {
+        Some("updated") => resource_text("- Updated: ", item.get("workout").unwrap_or(item)),
+        Some("deleted") => println!(
+            "- Deleted: {}",
+            item.get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("(unnamed)")
+        ),
+        _ => resource_text("- ", item),
+    }
+}
+
+fn resource_text(prefix: &str, resource: &Value) {
+    let title = resource
+        .get("title")
+        .or_else(|| resource.get("id"))
+        .and_then(Value::as_str)
+        .unwrap_or("(unnamed)");
+    let id = resource.get("id").and_then(Value::as_str);
+    match id {
+        Some(id) if id != title => println!("{prefix}{title} ({id})"),
+        _ => println!("{prefix}{title}"),
     }
 }
 
