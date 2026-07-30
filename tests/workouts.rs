@@ -140,6 +140,28 @@ fn workouts_count_and_get_make_documented_requests() {
 }
 
 #[test]
+fn workout_get_has_a_concise_readable_summary() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let request = server
+        .mock("GET", "/v1/workouts/workout-1")
+        .match_header("api-key", "api-key")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"id":"workout-1","title":"Lower strength","start_time":"2026-07-30T05:42:48Z","end_time":"2026-07-30T06:52:52Z","exercises":[{"title":"Box Jump","sets":[{},{}]},{"title":"Squat","sets":[{}]}]}"#)
+        .create();
+
+    command(&server, &config_home)
+        .args(["--api-key", "api-key", "workouts", "get", "workout-1"])
+        .assert()
+        .success()
+        .stdout("ID: workout-1\nTitle: Lower strength\nStarted: 2026-07-30T05:42:48Z\nEnded: 2026-07-30T06:52:52Z\nExercises:\n- Box Jump (2 sets)\n- Squat (1 set)\n")
+        .stderr("");
+
+    request.assert();
+}
+
+#[test]
 fn workouts_count_has_readable_default_output() {
     let mut server = Server::new();
     let config_home = TempDir::new().unwrap();

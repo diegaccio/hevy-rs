@@ -68,6 +68,8 @@ fn text(value: &Value) {
         for item in items {
             collection_item_text(item);
         }
+    } else if value.get("exercises").and_then(Value::as_array).is_some() {
+        workout_text(value);
     } else if value.get("name").is_some() {
         user_text(value);
     } else {
@@ -101,6 +103,36 @@ fn resource_text(prefix: &str, resource: &Value) {
     match id {
         Some(id) if id != title => println!("{prefix}{title} ({id})"),
         _ => println!("{prefix}{title}"),
+    }
+}
+
+fn workout_text(workout: &Value) {
+    let field = |name| {
+        workout
+            .get(name)
+            .and_then(Value::as_str)
+            .unwrap_or("(not provided)")
+    };
+    println!("ID: {}", field("id"));
+    println!("Title: {}", field("title"));
+    println!("Started: {}", field("start_time"));
+    println!("Ended: {}", field("end_time"));
+    println!("Exercises:");
+    for exercise in workout
+        .get("exercises")
+        .and_then(Value::as_array)
+        .expect("workout text rendering requires exercises")
+    {
+        let title = exercise
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or("(unnamed)");
+        let set_count = exercise
+            .get("sets")
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len);
+        let unit = if set_count == 1 { "set" } else { "sets" };
+        println!("- {title} ({set_count} {unit})");
     }
 }
 
