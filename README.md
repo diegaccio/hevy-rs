@@ -2,7 +2,7 @@
 
 A Rust command-line interface for the [Hevy API](https://api.hevyapp.com/docs/).
 
-> **Status:** Early development. Authenticated user lookup and workout retrieval are supported.
+> **Status:** Early development. Authenticated user lookup, workout commands, and routine management are supported.
 
 ## Build and first read
 
@@ -169,18 +169,79 @@ Use your own workout and exercise-template IDs, and dry-run the exact payload be
 
 ## Routines
 
-Use the `routines` resource commands to manage training plans:
+Use the `routines` resource commands to list and manage training plans:
 
 ```sh
 hevy-rs routines list
+hevy-rs routines list --all
 hevy-rs routines get <routine-id>
 hevy-rs routines create --data @routine.json
 hevy-rs routines update <routine-id> --data @routine.json
 ```
 
-`list` accepts `--page <n>` and `--page-size <n>` (1–10), or `--all` for explicit complete retrieval; `--all` cannot be combined with `--page`. Routine creates and updates accept complete API-shaped JSON through `--data` as inline JSON, `@path`, or `-` for standard input. Use `--dry-run` to inspect the redacted request without sending it. Do not retry a routine mutation after a transport failure: retrieve and reconcile the affected routine first.
+`list` accepts `--page <n>` and `--page-size <n>` (1–10), or `--all` for explicit complete retrieval; `--all` cannot be combined with `--page`. In JSON mode, a collection is normalized to `items`, `page`, and `page_count`; `--all` also reports `all: true` and `pages_fetched`.
 
-Use `--dry-run` with either mutation to validate the JSON and inspect its redacted intended request without sending it. Do not repeat a mutation after a transport failure: its outcome is unknown; retrieve and reconcile the affected workout first.
+### Create a routine
+
+A create payload is a complete object under `routine`. It needs a title, a destination `folder_id`, and the full list of exercises. Each exercise refers to an existing Hevy exercise-template ID and includes all of its planned sets. A set may use a fixed `reps` value or an inclusive `rep_range`.
+
+Replace the IDs below with IDs from your account. The routine-folder ID is required when creating a routine; obtain it from Hevy before creating the payload.
+
+```json
+{
+  "routine": {
+    "title": "Test routine",
+    "folder_id": 123456,
+    "notes": "Created for API verification.",
+    "exercises": [
+      {
+        "exercise_template_id": "<exercise-template-id-1>",
+        "rest_seconds": 60,
+        "notes": "",
+        "sets": [
+          { "type": "normal", "rep_range": { "start": 8, "end": 12 } }
+        ]
+      },
+      {
+        "exercise_template_id": "<exercise-template-id-2>",
+        "rest_seconds": 60,
+        "notes": "",
+        "sets": [
+          { "type": "normal", "reps": 10 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Review the exact request first; this sends no API request:
+
+```sh
+hevy-rs --format json routines create --dry-run --data @routine.json
+```
+
+Then create it using the configured `HEVY_API_KEY`:
+
+```sh
+hevy-rs --format json routines create --data @routine.json
+```
+
+### Update a routine
+
+An update replaces the complete routine body. Start by retrieving the routine, preserve every exercise and set you intend to keep, then send a complete payload. Unlike creation, an update payload does not include `folder_id`.
+
+```sh
+hevy-rs --format json routines get <routine-id>
+hevy-rs --format json routines update <routine-id> --dry-run --data @updated-routine.json
+hevy-rs --format json routines update <routine-id> --data @updated-routine.json
+```
+
+Routine reads and mutations return the Hevy API response, including the created or updated routine ID. Keep that ID to retrieve and reconcile the routine after a write.
+
+Routine creates and updates accept `--data` as inline JSON, `@path`, or `-` for standard input. Use `--dry-run` to inspect the redacted request without sending it. A 4xx/5xx response reports a known API failure. Do not retry a routine mutation after a transport failure: its outcome is unknown, so retrieve and reconcile the affected routine first.
+
+Use `--dry-run` with workout mutations to validate the JSON and inspect the redacted intended request without sending it. Do not repeat a workout mutation after a transport failure: its outcome is unknown; retrieve and reconcile the affected workout first.
 
 The CLI sends `GET /v1/user/info` and documented workout and routine requests with the API key in Hevy's
 `api-key` header. It never prints the key in diagnostics. `--format json` writes errors to stderr and uses exit status 2 for invocation
