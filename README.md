@@ -121,7 +121,51 @@ cat <<'JSON' | hevy-rs workouts create --dry-run --data -
 JSON
 ```
 
-After reviewing the dry run, remove `--dry-run` to create the workout. To update an existing workout, use `hevy-rs workouts update <workout-id> --data @workout.json`.
+After reviewing the dry run, remove `--dry-run` to create the workout. Updates replace the complete workout body. For example, this update adds a second set to each existing exercise and adds Incline Bench Press (Dumbbell):
+
+```sh
+cat <<'JSON' | hevy-rs workouts update <workout-id> --data -
+{
+  "workout": {
+    "title": "Hevy CLI Test Workout",
+    "description": "",
+    "start_time": "2026-07-30T17:00:00Z",
+    "end_time": "2026-07-30T17:45:00Z",
+    "is_private": false,
+    "exercises": [
+      {
+        "exercise_template_id": "79D0BB3A",
+        "superset_id": null,
+        "notes": "",
+        "sets": [
+          { "type": "normal", "weight_kg": 60, "reps": 8, "rpe": 8 },
+          { "type": "normal", "weight_kg": 60, "reps": 8, "rpe": 8 }
+        ]
+      },
+      {
+        "exercise_template_id": "55E6546F",
+        "superset_id": null,
+        "notes": "",
+        "sets": [
+          { "type": "normal", "weight_kg": 50, "reps": 10, "rpe": 8 },
+          { "type": "normal", "weight_kg": 50, "reps": 10, "rpe": 8 }
+        ]
+      },
+      {
+        "exercise_template_id": "07B38369",
+        "superset_id": null,
+        "notes": "",
+        "sets": [
+          { "type": "normal", "weight_kg": 28, "reps": 8, "rpe": 8 }
+        ]
+      }
+    ]
+  }
+}
+JSON
+```
+
+Use your own workout and exercise-template IDs, and dry-run the exact payload before sending it.
 
 Use `--dry-run` with either mutation to validate the JSON and inspect its redacted intended request without sending it. Do not repeat a mutation after a transport failure: its outcome is unknown; retrieve and reconcile the affected workout first.
 
