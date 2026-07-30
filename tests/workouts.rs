@@ -373,27 +373,34 @@ fn workout_pagination_is_validated_locally() {
 }
 
 #[test]
-fn workout_create_sends_an_inline_complete_payload() {
+fn workout_create_sends_an_inline_complete_api_payload() {
     let mut server = Server::new();
     let config_home = TempDir::new().unwrap();
+    let payload = r#"{"workout":{"title":"Morning","exercises":[{"exercise_template_id":"squat","superset_id":null,"sets":[{"type":"normal","weight_kg":100,"reps":5,"distance_meters":null,"duration_seconds":null,"custom_metric":null,"rpe":null}]}]}}"#;
     let request = server
         .mock("POST", "/v1/workouts")
         .match_header("api-key", "api-key")
         .match_header("content-type", "application/json")
-        .match_body(mockito::Matcher::JsonString(r#"{"title":"Morning","exercises":[{"exercise_template_id":"squat","sets":[{"type":"normal","weight_kg":100,"reps":5}]}]}"#.to_owned()))
+        .match_body(mockito::Matcher::JsonString(payload.to_owned()))
         .with_status(201)
         .with_header("content-type", "application/json")
-        .with_body(r#"{"id":"workout-1","title":"Morning","exercises":[]}"#)
+        .with_body(r#"{"workout":[{"id":"workout-1","title":"Morning","exercises":[]}]}"#)
         .create();
 
     command(&server, &config_home)
         .args([
-            "--format", "json", "--api-key", "api-key", "workouts", "create", "--data",
-            r#"{"title":"Morning","exercises":[{"exercise_template_id":"squat","sets":[{"type":"normal","weight_kg":100,"reps":5}]}]}"#,
+            "--format",
+            "json",
+            "--api-key",
+            "api-key",
+            "workouts",
+            "create",
+            "--data",
+            payload,
         ])
         .assert()
         .success()
-        .stdout("{\"exercises\":[],\"id\":\"workout-1\",\"title\":\"Morning\"}\n")
+        .stdout("{\"workout\":[{\"exercises\":[],\"id\":\"workout-1\",\"title\":\"Morning\"}]}\n")
         .stderr("");
 
     request.assert();

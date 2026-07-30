@@ -92,29 +92,31 @@ Replace the exercise-template IDs with your existing Hevy template IDs. This exa
 ```sh
 cat <<'JSON' | hevy-rs workouts create --dry-run --data -
 {
-  "title": "Upper body",
-  "description": "",
-  "start_time": "2026-07-30T17:00:00Z",
-  "end_time": "2026-07-30T17:45:00Z",
-  "is_private": false,
-  "exercises": [
-    {
-      "exercise_template_id": "<bench-press-template-id>",
-      "title": "Bench Press (Barbell)",
-      "notes": "",
-      "sets": [
-        { "type": "normal", "weight_kg": 60, "reps": 8, "rpe": 8 }
-      ]
-    },
-    {
-      "exercise_template_id": "<barbell-row-template-id>",
-      "title": "Bent Over Row (Barbell)",
-      "notes": "",
-      "sets": [
-        { "type": "normal", "weight_kg": 50, "reps": 10, "rpe": 8 }
-      ]
-    }
-  ]
+  "workout": {
+    "title": "Upper body",
+    "description": "",
+    "start_time": "2026-07-30T17:00:00Z",
+    "end_time": "2026-07-30T17:45:00Z",
+    "is_private": false,
+    "exercises": [
+      {
+        "exercise_template_id": "<bench-press-template-id>",
+        "superset_id": null,
+        "notes": "",
+        "sets": [
+          { "type": "normal", "weight_kg": 60, "reps": 8, "rpe": 8 }
+        ]
+      },
+      {
+        "exercise_template_id": "<barbell-row-template-id>",
+        "superset_id": null,
+        "notes": "",
+        "sets": [
+          { "type": "normal", "weight_kg": 50, "reps": 10, "rpe": 8 }
+        ]
+      }
+    ]
+  }
 }
 JSON
 ```
