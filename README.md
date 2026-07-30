@@ -12,10 +12,24 @@ Use a stable Rust toolchain, then run:
 cargo run -- --api-key "$HEVY_API_KEY" user get
 ```
 
+Example output:
+
+```text
+ID: 00000000-0000-0000-0000-000000000000
+Name: Ada Lovelace
+URL: https://hevy.com/user/ada
+```
+
 For automation, store the key in `HEVY_API_KEY` and request the stable machine contract:
 
 ```sh
 HEVY_API_KEY=... cargo run -- --format json user get
+```
+
+Example JSON output:
+
+```json
+{"id":"00000000-0000-0000-0000-000000000000","name":"Ada Lovelace","url":"https://hevy.com/user/ada"}
 ```
 
 Credentials are resolved in this order: `--api-key`, `HEVY_API_KEY`, then the per-user
