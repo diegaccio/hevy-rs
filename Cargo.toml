@@ -8,6 +8,15 @@ repository = "https://github.com/diegaccio/hevy-rs"
 readme = "README.md"
 keywords = ["hevy", "cli", "fitness"]
 categories = ["command-line-utilities"]
+include = [
+    "src/**",
+    "tests/**",
+    "skills/hevy-rs/**",
+    "AGENTS.md",
+    "CONTEXT.md",
+    "README.md",
+    "LICENSE-*",
+]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive", "env"] }

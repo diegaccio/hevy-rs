@@ -22,3 +22,24 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+
+  skill-installer:
+    name: Validate bundled skill discovery
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify local skill discovery
+        shell: bash
+        run: |
+          output="$(npx --yes skills@1.4.0 add . --skill hevy-rs --list)"
+          printf '%s\n' "$output"
+          node -e '
+            const output = require("fs").readFileSync(0, "utf8")
+              .replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, "");
+            if (!/^[ \t│|]*hevy-rs[ \t]*\r?$/m.test(output)) {
+              throw new Error("The local skill listing did not contain hevy-rs.");
+            }
+          ' <<< "$output"
