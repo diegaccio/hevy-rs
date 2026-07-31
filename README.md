@@ -51,6 +51,7 @@ hevy-rs workouts create --help
 - [Proposal-to-write walkthrough](docs/walkthroughs/proposal-to-write.md)
 - [Ambiguous-write recovery walkthrough](docs/walkthroughs/ambiguous-write-recovery.md)
 - [Portable agent workflow](skills/hevy/SKILL.md)
+- [Release policy and maintainer procedure](docs/releasing.md)
 
 ## License
 
