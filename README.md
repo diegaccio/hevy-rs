@@ -43,6 +43,16 @@ hevy-rs workouts --help
 hevy-rs workouts create --help
 ```
 
+## Agent skill
+
+Install the bundled `hevy-rs` skill with the ecosystem installer:
+
+```sh
+npx skills add diegaccio/hevy-rs --skill hevy-rs
+```
+
+The skill is an operating guide for the CLI; see [its entry guide](skills/hevy-rs/SKILL.md).
+
 ## Documentation
 
 - [Command, configuration, safety, recovery, and fixture reference](docs/reference.md)
@@ -50,7 +60,7 @@ hevy-rs workouts create --help
 - [Evidence-to-advice walkthrough](docs/walkthroughs/evidence-to-advice.md)
 - [Proposal-to-write walkthrough](docs/walkthroughs/proposal-to-write.md)
 - [Ambiguous-write recovery walkthrough](docs/walkthroughs/ambiguous-write-recovery.md)
-- [Portable agent workflow](skills/hevy/SKILL.md)
+- [hevy-rs agent skill](skills/hevy-rs/SKILL.md)
 - [Release policy and maintainer procedure](docs/releasing.md)
 
 ## License
