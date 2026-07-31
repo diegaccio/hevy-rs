@@ -7,7 +7,7 @@ description: Operate the hevy-rs CLI safely with JSON output, authenticated Hevy
 
 Use this skill to operate the `hevy-rs` CLI. Use `--format json` for data-bearing commands and invoke commands through the host's structured-argument mechanism, not dynamically interpolated shell text.
 
-If `hevy-rs` is not available on `PATH` or the host cannot locate it, report that to the user and point them to the repository README's [Install on Linux](../../README.md#install-on-linux) section. Do not attempt an operation until the user has made the CLI available.
+If `hevy-rs` is not available on `PATH` or the host cannot locate it, report that to the user and point them to the repository README's [Install](../../README.md#install) section. Do not attempt an operation until the user has made the CLI available.
 
 ## Start here
 

@@ -5,10 +5,10 @@ A Rust command-line interface for the [Hevy API](https://api.hevyapp.com/docs/).
 > **Status:** Early development. The CLI supports the public authenticated-user, workout,
 > routine, exercise-template, routine-folder, exercise-history, and body-measurement operations.
 
-## Install on Linux
+## Install
 
-Install a current stable Rust toolchain with [rustup](https://rustup.rs/), clone this
-repository, then install the binary:
+Install [Rust and Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) with
+[rustup](https://rustup.rs/), clone this repository, then install the binary:
 
 ```sh
 git clone https://github.com/diegaccio/hevy-rs.git
