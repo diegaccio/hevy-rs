@@ -108,7 +108,7 @@ fn mutate_resource(
 }
 
 pub fn list_routines(api_key: &str, pagination: Pagination) -> Result<Value, AppError> {
-    list_paginated(api_key, "/v1/routines", pagination, "routines", None)
+    list_paginated(api_key, "/v1/routines", pagination, &["routines"], None)
 }
 
 pub fn list_body_measurements(api_key: &str, pagination: Pagination) -> Result<Value, AppError> {
@@ -116,7 +116,7 @@ pub fn list_body_measurements(api_key: &str, pagination: Pagination) -> Result<V
         api_key,
         "/v1/body_measurements",
         pagination,
-        "body_measurements",
+        &["body_measurements"],
         None,
     )
 }
@@ -138,7 +138,7 @@ pub fn list_exercise_templates(api_key: &str, pagination: Pagination) -> Result<
         api_key,
         "/v1/exercise_templates",
         pagination,
-        "exercise_templates",
+        &["exercise_templates"],
         None,
     )
 }
@@ -152,7 +152,7 @@ pub fn list_routine_folders(api_key: &str, pagination: Pagination) -> Result<Val
         api_key,
         "/v1/routine_folders",
         pagination,
-        "routine_folders",
+        &["routine_folders"],
         None,
     )
 }
@@ -214,7 +214,7 @@ fn get_read_value(api_key: &str, path: &str) -> Result<Value, AppError> {
 }
 
 pub fn list_workouts(api_key: &str, pagination: Pagination) -> Result<Value, AppError> {
-    list_paginated(api_key, "/v1/workouts", pagination, "workouts", None)
+    list_paginated(api_key, "/v1/workouts", pagination, &["workouts"], None)
 }
 
 pub fn list_workout_events(
@@ -222,14 +222,20 @@ pub fn list_workout_events(
     pagination: Pagination,
     since: Option<&str>,
 ) -> Result<Value, AppError> {
-    list_paginated(api_key, "/v1/workouts/events", pagination, "events", since)
+    list_paginated(
+        api_key,
+        "/v1/workouts/events",
+        pagination,
+        &["workouts", "events"],
+        since,
+    )
 }
 
 fn list_paginated(
     api_key: &str,
     path: &str,
     pagination: Pagination,
-    item_key: &str,
+    item_keys: &[&str],
     since: Option<&str>,
 ) -> Result<Value, AppError> {
     let base_url =
@@ -245,7 +251,7 @@ fn list_paginated(
             &url,
             api_key,
             pagination.page_size,
-            item_key,
+            item_keys,
             since,
         );
     }
@@ -255,7 +261,7 @@ fn list_paginated(
         &with_query(&url, pagination.page, pagination.page_size, since)?,
         api_key,
     )?;
-    normalize_collection(response_to_json(response)?, item_key)
+    normalize_collection(response_to_json(response)?, item_keys)
 }
 
 fn get_all_pages(
@@ -263,7 +269,7 @@ fn get_all_pages(
     url: &str,
     api_key: &str,
     page_size: Option<u32>,
-    item_key: &str,
+    item_keys: &[&str],
     since: Option<&str>,
 ) -> Result<Value, AppError> {
     let mut items = Vec::new();
@@ -285,12 +291,7 @@ fn get_all_pages(
             .ok_or_else(|| {
                 AppError::api_message("The Hevy API returned an invalid paginated response.")
             })?;
-        let page_items = collection
-            .get(item_key)
-            .and_then(Value::as_array)
-            .ok_or_else(|| {
-                AppError::api_message("The Hevy API returned an invalid paginated response.")
-            })?;
+        let page_items = collection_items(&collection, item_keys)?;
         items.extend(page_items.iter().cloned());
         pages_fetched.push(page);
         page += 1;
@@ -332,7 +333,7 @@ fn with_query(
     Ok(url.into())
 }
 
-fn normalize_collection(collection: Value, item_key: &str) -> Result<Value, AppError> {
+fn normalize_collection(collection: Value, item_keys: &[&str]) -> Result<Value, AppError> {
     let page = collection
         .get("page")
         .and_then(Value::as_u64)
@@ -345,14 +346,21 @@ fn normalize_collection(collection: Value, item_key: &str) -> Result<Value, AppE
         .ok_or_else(|| {
             AppError::api_message("The Hevy API returned an invalid paginated response.")
         })?;
-    let items = collection
-        .get(item_key)
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            AppError::api_message("The Hevy API returned an invalid paginated response.")
-        })?;
+    let items = collection_items(&collection, item_keys)?;
 
     Ok(serde_json::json!({ "items": items, "page": page, "page_count": page_count }))
+}
+
+fn collection_items<'a>(
+    collection: &'a Value,
+    item_keys: &[&str],
+) -> Result<&'a Vec<Value>, AppError> {
+    item_keys
+        .iter()
+        .find_map(|item_key| collection.get(item_key).and_then(Value::as_array))
+        .ok_or_else(|| {
+            AppError::api_message("The Hevy API returned an invalid paginated response.")
+        })
 }
 
 fn send_read_with_retries(client: &Client, url: &str, api_key: &str) -> Result<Response, AppError> {

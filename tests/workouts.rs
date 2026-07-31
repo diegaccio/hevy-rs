@@ -203,7 +203,7 @@ fn workouts_events_validates_since_and_retrieves_events() {
         ]))
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(r#"{"page":1,"page_count":1,"events":[{"type":"updated","id":"workout-1"}]}"#)
+        .with_body(r#"{"page":1,"page_count":1,"workouts":[{"type":"updated","id":"workout-1"}]}"#)
         .create();
 
     command(&server, &config_home)
@@ -316,7 +316,7 @@ fn workout_events_all_preserves_the_since_boundary_on_every_page() {
         ]))
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(r#"{"page":1,"page_count":2,"events":[{"id":"event-1"}]}"#)
+        .with_body(r#"{"page":1,"page_count":2,"workouts":[{"id":"event-1"}]}"#)
         .create();
     let second_page = server
         .mock("GET", "/v1/workouts/events")
@@ -326,7 +326,7 @@ fn workout_events_all_preserves_the_since_boundary_on_every_page() {
         ]))
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(r#"{"page":2,"page_count":2,"events":[{"id":"event-2"}]}"#)
+        .with_body(r#"{"page":2,"page_count":2,"workouts":[{"id":"event-2"}]}"#)
         .create();
 
     command(&server, &config_home)
