@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    name: Verify and publish stable release
+    runs-on: ubuntu-latest
+    # Configure this environment in GitHub with required reviewers and only allow
+    # protected v* tags to deploy. See docs/releasing.md.
+    environment: crates.io
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Verify protected stable version tag matches Cargo package
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || [[ "$tag" != "v$version" ]]; then
+            echo "Release tags must be stable SemVer and exactly match Cargo.toml: expected v$version, got $tag" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+      - name: Check dependency policy
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+      - name: Verify publishable package
+        run: cargo package --locked
+      - name: Authenticate to crates.io with GitHub OIDC
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish to crates.io
+        run: cargo publish --locked
+      - name: Create source-only GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          cat > release-notes.md <<EOF
+          ## hevy-rs $VERSION
+
+          Source release published to [crates.io](https://crates.io/crates/hevy-rs/$VERSION).
+
+          ### CI evidence
+
+          - Commit: \`$SHA\`
+          - Stable Rust format, Clippy (warnings denied), and hermetic tests passed
+          - \`cargo deny check\` passed the dependency, advisory, license, and source policy
+          - \`cargo package --locked\` verified the source package before publishing
+
+          This release intentionally has no binary assets. Install it on Linux with
+          \`cargo install hevy-rs\`.
+          EOF
+          gh release create "$TAG" --title "hevy-rs $VERSION" --notes-file release-notes.md

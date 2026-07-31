@@ -3,5 +3,23 @@ name = "hevy-rs"
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
+description = "A command-line interface for the Hevy API"
+repository = "https://github.com/diegaccio/hevy-rs"
+readme = "README.md"
+keywords = ["hevy", "cli", "fitness"]
+categories = ["command-line-utilities"]
 
 [dependencies]
+clap = { version = "4.5", features = ["derive", "env"] }
+dirs = "6.0"
+rand = "0.9"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+time = { version = "0.3", features = ["parsing"] }
+toml = "0.8"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+mockito = "1.6"
+tempfile = "3.15"
