@@ -18,7 +18,7 @@ Use this skill only to test the local repository's CLI and `skills/hevy-rs` oper
    ```
 
    If it is absent or blank, tell the user: **`HEVY_API_KEY` is not set; the live read-only CLI and skill check was not run.** Stop. Do not fall back to `--api-key` or a configuration file: this test specifically verifies the environment-variable credential path.
-2. Read [`../hevy-rs/SKILL.md`](../hevy-rs/SKILL.md), then its common guidance and every resource reference it links. Report each missing linked reference as a skill failure, but continue with the applicable live CLI checks where possible.
+2. Read [`skills/hevy-rs/SKILL.md`](../../../skills/hevy-rs/SKILL.md), then its common guidance and every resource reference it links. Report each missing linked reference as a skill failure, but continue with the applicable live CLI checks where possible.
 3. From the repository root, use this local CLI command prefix in every invocation:
 
    ```sh
