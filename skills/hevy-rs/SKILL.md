@@ -16,7 +16,8 @@ Use this skill to operate the `hevy-rs` CLI. Use `--format json` for data-bearin
   - [Routines](references/routines.md)
   - [Exercise templates](references/exercise-templates.md)
   - [Routine folders](references/routine-folders.md)
-  - Exercise history and body measurements: their focused references are added alongside those resource commands.
+  - [Exercise history](references/exercise-history.md)
+  - Body measurements: their focused reference is added alongside that resource command.
 - Use `hevy-rs --help` only when the installed CLI differs from this skill or a reference is not yet available.
 
 Keep API keys out of prompts, logs, plans, and rendered output. Do not make a mutation without the exact, freshly approved plan required by the common guidance.
