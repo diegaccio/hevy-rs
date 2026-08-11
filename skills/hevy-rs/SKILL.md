@@ -1,6 +1,6 @@
 ---
 name: hevy-rs
-description: Operate the hevy-rs CLI safely with JSON output, authenticated Hevy API access, and explicit mutation approval.
+description: Use whenever a user asks to view or manage their Hevy data—such as profile details, workouts, routines, routine folders, exercise templates, exercise history, or body measurements. Do not use for general Hevy/API questions or for developing `hevy-rs`.
 ---
 
 # hevy-rs
