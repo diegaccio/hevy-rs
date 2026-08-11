@@ -53,6 +53,18 @@ npx skills add diegaccio/hevy-rs --skill hevy-rs
 
 The skill is an operating guide for the CLI; see [its entry guide](skills/hevy-rs/SKILL.md).
 
+Update the project-installed skill after a new release:
+
+```sh
+npx skills update hevy-rs --yes
+```
+
+If it was installed globally, update it with:
+
+```sh
+npx skills update hevy-rs --global --yes
+```
+
 ## Documentation
 
 - [Command, configuration, safety, recovery, and fixture reference](docs/reference.md)
