@@ -12,6 +12,10 @@ _Avoid_: coaching workflow, generic Hevy skill
 Information in a user's Hevy account that the service exposes or manages, including profile details, workouts, routines, routine folders, exercise templates, exercise history, and body measurements.
 _Avoid_: general information about Hevy or its API; the `hevy-rs` CLI itself
 
+**AI coach**:
+A user-selected AI agent that provides fitness guidance and uses the `hevy-rs` CLI and skill to access approved Hevy data. It is external to `hevy-rs`; the project is a data-access tool, not a coaching product.
+_Avoid_: `hevy-rs` personal trainer, autonomous coach
+
 **Official Hevy API documentation**:
 The authoritative source for API resource semantics and complete API-shaped JSON payload schemas. The `hevy-rs` skill links to it when an operation needs a payload definition.
 _Avoid_: duplicated payload schema
