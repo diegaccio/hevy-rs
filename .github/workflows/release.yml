@@ -53,6 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            --user-agent 'hevy-rs-release-check/1.0 (https://github.com/diegaccio/hevy-rs)' \
             "https://crates.io/api/v1/crates/hevy-rs/$VERSION")"
           case "$status" in
             200) echo "published=true" >> "$GITHUB_OUTPUT" ;;
