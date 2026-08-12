@@ -45,10 +45,29 @@ jobs:
           command: check
       - name: Verify publishable package
         run: cargo package --locked
+      - name: Check whether this version is already published
+        id: crates_io
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            "https://crates.io/api/v1/crates/hevy-rs/$VERSION")"
+          case "$status" in
+            200) echo "published=true" >> "$GITHUB_OUTPUT" ;;
+            404) echo "published=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unexpected crates.io response while checking hevy-rs $VERSION: HTTP $status" >&2; exit 1 ;;
+          esac
       - name: Authenticate to crates.io with GitHub OIDC
+        if: steps.crates_io.outputs.published == 'false'
         uses: rust-lang/crates-io-auth-action@v1
       - name: Publish to crates.io
+        if: steps.crates_io.outputs.published == 'false'
         run: cargo publish --locked
+      - name: Confirm existing crates.io publication
+        if: steps.crates_io.outputs.published == 'true'
+        run: echo "hevy-rs ${{ steps.version.outputs.version }} is already published; skipping duplicate publication."
       - name: Create source-only GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

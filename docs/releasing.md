@@ -6,9 +6,12 @@ Release assets.
 
 ## One-time repository setup
 
-1. Configure crates.io trusted publishing for this repository and the `crates.io`
-   GitHub Actions environment. The publisher must be this repository's `Release`
-   workflow; do not add a long-lived crates.io token as a repository secret.
+1. For releases after the first, configure crates.io trusted publishing for this
+   repository, the `release.yml` workflow, and the `crates.io` GitHub Actions
+   environment. The publisher must be this repository's `Release` workflow; do not
+   add a long-lived crates.io token as a repository secret. crates.io requires a crate
+   to exist before trusted publishing can be configured, so the initial publication is
+   the one exception described below.
 2. Create a GitHub ruleset or protected-tag rule for `v*` that prevents unapproved
    creation, update, and deletion of release tags. Limit tag creation to maintainers.
 3. Protect the `crates.io` environment with required reviewers and restrict deployment
@@ -18,6 +21,25 @@ Release assets.
 These GitHub and crates.io settings cannot be represented solely in the repository, so
 release automation deliberately names the protected environment and documents the
 required controls here.
+
+## Initial publication bootstrap
+
+crates.io requires an initial publication before a trusted publisher can be configured.
+Create a crates.io token with only the `publish-new` permission, keep it in the local
+environment (never in the repository or GitHub), and publish the reviewed package:
+
+```sh
+cargo publish --locked
+```
+
+On Windows PowerShell, set `CARGO_REGISTRY_TOKEN` only for the current shell before
+running that command. Revoke the token once publishing succeeds. Then configure the
+trusted publisher in crates.io for GitHub repository `diegaccio/hevy-rs`, workflow
+filename `release.yml`, and environment `crates.io`.
+
+After the crate exists, create the protected `vMAJOR.MINOR.PATCH` tag. The Release
+workflow detects the already-published initial version, skips the duplicate publish,
+and creates its source-only GitHub Release. Later release tags publish through OIDC.
 
 ## Release procedure
 
