@@ -14,6 +14,10 @@ An AI coach is a user-selected external agent that provides fitness guidance. Th
 bundled `hevy-rs` skill give it structured access to Hevy data; choose and trust your own
 agent and model provider, and review their data practices before sharing data with them.
 
+The CLI and skill also give an agent a ready-made command and safety reference, so it can
+use structured Hevy operations instead of repeatedly discovering API details from the
+documentation—saving context and token use.
+
 1. Install [Rust and Cargo](https://rustup.rs/) if needed, then install the released CLI on
    the host where your agent runs:
 
