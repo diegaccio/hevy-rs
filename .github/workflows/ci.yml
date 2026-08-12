@@ -22,6 +22,8 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: Verify README onboarding contract
+        run: bash scripts/check-readme-contract.sh
 
   skill-installer:
     name: Validate bundled skill discovery
