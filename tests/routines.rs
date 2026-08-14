@@ -98,7 +98,7 @@ fn routine_get_returns_the_documented_resource() {
         .match_header("api-key", "api-key")
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(r#"{"id":"routine-123","title":"Upper","folder_id":"folder-1","exercises":[]}"#)
+        .with_body(r#"{"routine":{"id":"routine-123","title":"Upper","folder_id":"folder-1","exercises":[]}}"#)
         .create();
 
     command(&server, &config_home)
@@ -107,7 +107,7 @@ fn routine_get_returns_the_documented_resource() {
         ])
         .assert()
         .success()
-        .stdout("{\"exercises\":[],\"folder_id\":\"folder-1\",\"id\":\"routine-123\",\"title\":\"Upper\"}\n")
+        .stdout("{\"routine\":{\"exercises\":[],\"folder_id\":\"folder-1\",\"id\":\"routine-123\",\"title\":\"Upper\"}}\n")
         .stderr("");
 
     request.assert();
@@ -182,6 +182,131 @@ fn routine_mutations_preserve_complete_nested_payloads_and_support_dry_runs() {
 
     request.assert();
     update_request.assert();
+}
+
+#[test]
+fn routine_mutations_reject_unwrapped_payloads_before_dry_runs_or_requests() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let create_request = server.mock("POST", "/v1/routines").expect(0).create();
+    let update_request = server
+        .mock("PUT", "/v1/routines/routine-1")
+        .expect(0)
+        .create();
+
+    command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "--api-key",
+            "api-key",
+            "routines",
+            "create",
+            "--data",
+            r#"{"title":"Unwrapped","exercises":[]}"#,
+        ])
+        .assert()
+        .code(2)
+        .stdout("")
+        .stderr("{\"code\":\"invocation\",\"message\":\"Routine payload must contain a top-level \\\"routine\\\" object.\"}\n");
+    command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "routines",
+            "update",
+            "routine-1",
+            "--dry-run",
+            "--data",
+            r#"{"title":"Unwrapped","exercises":[]}"#,
+        ])
+        .assert()
+        .code(2)
+        .stdout("")
+        .stderr("{\"code\":\"invocation\",\"message\":\"Routine payload must contain a top-level \\\"routine\\\" object.\"}\n");
+
+    create_request.assert();
+    update_request.assert();
+}
+
+#[test]
+fn routine_api_failures_include_a_bounded_hevy_error_detail() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let request = server
+        .mock("PUT", "/v1/routines/routine-1")
+        .match_header("api-key", "api-key")
+        .with_status(400)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"error":"routine is required"}"#)
+        .create();
+
+    let output = command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "--api-key",
+            "api-key",
+            "routines",
+            "update",
+            "routine-1",
+            "--data",
+            r#"{"routine":{"title":"Upper","exercises":[]}}"#,
+        ])
+        .assert()
+        .code(4)
+        .get_output()
+        .clone();
+
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&output.stderr).unwrap(),
+        serde_json::json!({
+            "code": "api",
+            "message": "The Hevy API request failed: routine is required.",
+            "status": 400
+        })
+    );
+    request.assert();
+}
+
+#[test]
+fn routine_api_failures_ignore_oversized_hevy_error_details() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let request = server
+        .mock("PUT", "/v1/routines/routine-1")
+        .match_header("api-key", "api-key")
+        .with_status(400)
+        .with_header("content-type", "application/json")
+        .with_body(serde_json::json!({ "error": "x".repeat(501) }).to_string())
+        .create();
+
+    let output = command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "--api-key",
+            "api-key",
+            "routines",
+            "update",
+            "routine-1",
+            "--data",
+            r#"{"routine":{"title":"Upper","exercises":[]}}"#,
+        ])
+        .assert()
+        .code(4)
+        .get_output()
+        .clone();
+
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&output.stderr).unwrap(),
+        serde_json::json!({
+            "code": "api",
+            "message": "The Hevy API request failed.",
+            "status": 400
+        })
+    );
+    request.assert();
 }
 
 #[test]

@@ -24,6 +24,8 @@ For API semantics and response shapes, see the official operations for [listing 
 
 Follow the shared mutation protocol in [common CLI guidance](common.md): form an exact finite plan, inspect a `--dry-run`, obtain fresh explicit approval, execute the approved batch once, and reconcile before any follow-up after an outcome-unknown mutation. Supply the complete API-shaped JSON payload with `--data <JSON|@path|->`; use a controlled file or standard input for dynamic payloads. Do not copy a complete payload schema into this skill.
 
+Routine creates and updates require a **routine request envelope**: the top-level JSON object must contain a `routine` object, for example `{"routine":{"title":"Upper","exercises":[]}}`. `routines get` also returns a top-level `routine` object, but its nested **routine resource** includes response-only fields. For an update, prepare a new request body from the resource's mutable fields; do not reuse the GET response unchanged, and omit `id`, `folder_id`, `created_at`, and `updated_at`.
+
 Create a routine:
 
 ```sh

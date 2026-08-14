@@ -10,8 +10,11 @@ The example changes a routine; replace placeholders with real values.
    hevy-rs --format json routines get <routine-id>
    ```
 
-2. Write the complete replacement body to a controlled file, for example
-   `approved-routine.json`. Do not construct JSON through shell interpolation.
+2. Write the complete replacement **request body** to a controlled file, for example
+   `approved-routine.json`. Do not construct JSON through shell interpolation. The GET result
+   already has a top-level `routine` object, but its nested resource is not an update body:
+   omit `id`, `folder_id`, `created_at`, and `updated_at`, and retain the mutable fields needed
+   for the replacement, for example `{"routine":{"title":"Upper","exercises":[]}}`.
 3. Validate the exact target and body without sending a request:
 
    ```sh

@@ -137,6 +137,11 @@ Creates and updates require one complete API-shaped JSON body:
 The value may be inline JSON, `@path` to a JSON file, or `-` to read JSON from standard
 input. Nested API bodies are preserved; there is no per-field flag grammar.
 
+Routine creates and updates require a top-level `routine` object, for example
+`{"routine":{"title":"Upper","exercises":[]}}`. `routines get` also returns a top-level
+`routine` object, but its nested resource includes response-only fields. To update it, build a
+new request from its mutable fields and omit `id`, `folder_id`, `created_at`, and `updated_at`.
+
 ```sh
 hevy-rs routines create --data @routine.json
 printf '%s' '{"routine_folder":{"title":"Strength"}}' |

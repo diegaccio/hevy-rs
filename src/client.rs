@@ -424,11 +424,18 @@ fn response_to_json(response: Response) -> Result<Value, AppError> {
         ));
     }
     if !status.is_success() {
-        return Err(AppError::api(
-            "The Hevy API request failed.",
-            status,
-            request_id,
-        ));
+        let message = response
+            .json::<Value>()
+            .ok()
+            .and_then(|body| body.get("error").and_then(Value::as_str).map(str::to_owned))
+            .filter(|detail| {
+                !detail.is_empty()
+                    && detail.chars().count() <= 500
+                    && !detail.chars().any(char::is_control)
+            })
+            .map(|detail| format!("The Hevy API request failed: {detail}."))
+            .unwrap_or_else(|| "The Hevy API request failed.".to_owned());
+        return Err(AppError::api(message, status, request_id));
     }
 
     response.json().map_err(|_| {

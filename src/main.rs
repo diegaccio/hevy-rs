@@ -83,9 +83,9 @@ enum RoutineCommand {
     List(PaginationArgs),
     /// Retrieve a routine's complete details.
     Get { routine_id: String },
-    /// Create a routine from a complete API-shaped JSON payload.
+    /// Create a routine from a complete API-shaped JSON request body with a top-level `routine` object.
     Create(MutationArgs),
-    /// Replace a routine with a complete API-shaped JSON payload.
+    /// Replace a routine with a complete API-shaped JSON request body with a top-level `routine` object.
     Update {
         /// Routine identifier.
         routine_id: String,
@@ -439,6 +439,7 @@ fn execute_mutation(
     }
 
     let payload = read_payload(&mutation.data)?;
+    validate_mutation_payload(resource_path, &payload)?;
     if mutation.dry_run {
         return Ok(dry_run_output(
             resource_path,
@@ -480,6 +481,22 @@ fn read_payload(source: &str) -> Result<serde_json::Value, AppError> {
 
     serde_json::from_str(&content)
         .map_err(|_| AppError::invocation("--data must contain valid JSON."))
+}
+
+fn validate_mutation_payload(
+    resource_path: &str,
+    payload: &serde_json::Value,
+) -> Result<(), AppError> {
+    if resource_path == "routines"
+        && !payload
+            .get("routine")
+            .is_some_and(serde_json::Value::is_object)
+    {
+        return Err(AppError::invocation(
+            "Routine payload must contain a top-level \"routine\" object.",
+        ));
+    }
+    Ok(())
 }
 
 fn dry_run_output(

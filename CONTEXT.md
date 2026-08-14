@@ -23,3 +23,11 @@ _Avoid_: duplicated payload schema
 **CLI-skill synchronization**:
 The requirement that a change to the public `hevy-rs` CLI contract—commands, flags, defaults, output or error shapes, credential/configuration behavior, supported operations, or write/recovery semantics—updates the bundled `hevy-rs` skill in the same change. Internal behavior-preserving refactors are excluded.
 _Avoid_: independently maintained CLI documentation
+
+**Routine resource**:
+The nested `routine` object returned by a routine retrieval operation. It contains response-only fields and is not, unchanged, a routine mutation body.
+_Avoid_: routine update payload, routine request
+
+**Routine request envelope**:
+A top-level JSON object containing a `routine` object, required as the body for a routine create or update operation. A routine retrieval response uses the same outer envelope but its nested resource has different allowed fields.
+_Avoid_: unwrapped routine, routine resource
