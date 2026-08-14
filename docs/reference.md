@@ -140,7 +140,8 @@ input. Nested API bodies are preserved; there is no per-field flag grammar.
 Routine creates and updates require a top-level `routine` object, for example
 `{"routine":{"title":"Upper","exercises":[]}}`. `routines get` also returns a top-level
 `routine` object, but its nested resource includes response-only fields. To update it, build a
-new request from its mutable fields and omit `id`, `folder_id`, `created_at`, and `updated_at`.
+new request from its mutable fields. `folder_id` is mutable (use `null` for the default folder); omit
+routine `id`, `created_at`, and `updated_at`, exercise `index` and `title`, and set `index`.
 
 ```sh
 hevy-rs routines create --data @routine.json
@@ -150,7 +151,9 @@ hevy-rs body-measurements update 2025-01-15 --data @replacement.json
 ```
 
 Use `--dry-run` on every mutation to parse the body and show the redacted intended HTTP
-method, path, body, and affected resource without sending a request. `--dry-run` and
+method, path, body, and affected resource without sending a request. Routine creates and updates
+also validate the complete operation-specific request schema locally before previewing; an invalid
+field produces an invocation error with its JSON path. `--dry-run` and
 `--yes` cannot be combined. Current public commands contain no destructive operation,
 so no command requires `--yes`; the flag is reserved for a future documented irreversible
 operation. Reversible creates and updates do not prompt.

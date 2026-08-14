@@ -117,7 +117,7 @@ fn routine_get_returns_the_documented_resource() {
 fn routine_mutations_preserve_complete_nested_payloads_and_support_dry_runs() {
     let mut server = Server::new();
     let config_home = TempDir::new().unwrap();
-    let payload = r#"{"routine":{"title":"Upper","folder_id":"folder-1","notes":"","exercises":[{"exercise_template_id":"bench","rest_seconds":120,"sets":[{"type":"normal","weight_kg":60,"reps":8,"rpe":8}]}]}}"#;
+    let payload = r#"{"routine":{"title":"Upper","folder_id":1,"notes":"","exercises":[{"exercise_template_id":"bench","rest_seconds":120,"sets":[{"type":"normal","weight_kg":60,"reps":8}]}]}}"#;
     let request = server
         .mock("POST", "/v1/routines")
         .match_header("api-key", "api-key")
@@ -173,11 +173,11 @@ fn routine_mutations_preserve_complete_nested_payloads_and_support_dry_runs() {
     command(&server, &config_home)
         .args([
             "--format", "json", "routines", "update", "routine-1", "--dry-run", "--data",
-            r#"{"routine":{"title":"Upper","exercises":[]},"api_key":"secret"}"#,
+            r#"{"routine":{"title":"Upper","exercises":[]}}"#,
         ])
         .assert()
         .success()
-        .stdout("{\"affected_resource\":\"routine-1\",\"dry_run\":true,\"request\":{\"body\":{\"api_key\":\"[REDACTED]\",\"routine\":{\"exercises\":[],\"title\":\"Upper\"}},\"method\":\"PUT\",\"path\":\"/v1/routines/routine-1\"}}\n")
+        .stdout("{\"affected_resource\":\"routine-1\",\"dry_run\":true,\"request\":{\"body\":{\"routine\":{\"exercises\":[],\"title\":\"Upper\"}},\"method\":\"PUT\",\"path\":\"/v1/routines/routine-1\"}}\n")
         .stderr("");
 
     request.assert();
@@ -227,6 +227,89 @@ fn routine_mutations_reject_unwrapped_payloads_before_dry_runs_or_requests() {
 
     create_request.assert();
     update_request.assert();
+}
+
+#[test]
+fn routine_mutations_reject_response_only_fields_with_json_paths_before_requests() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let create_request = server.mock("POST", "/v1/routines").expect(0).create();
+    let update_request = server
+        .mock("PUT", "/v1/routines/routine-1")
+        .expect(0)
+        .create();
+
+    command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "routines",
+            "create",
+            "--dry-run",
+            "--data",
+            r#"{"routine":{"title":"Upper","exercises":[{"index":0,"exercise_template_id":"bench","sets":[]}]}}"#,
+        ])
+        .assert()
+        .code(2)
+        .stdout("")
+        .stderr("{\"code\":\"invocation\",\"message\":\"Invalid routine create payload: routine.exercises[0].index is not accepted; omit response-only fields.\"}\n");
+    command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "routines",
+            "update",
+            "routine-1",
+            "--dry-run",
+            "--data",
+            r#"{"routine":{"title":"Upper","exercises":[{"exercise_template_id":"bench","sets":[{"index":0,"type":"normal"}]}]}}"#,
+        ])
+        .assert()
+        .code(2)
+        .stdout("")
+        .stderr("{\"code\":\"invocation\",\"message\":\"Invalid routine update payload: routine.exercises[0].sets[0].index is not accepted; omit response-only fields.\"}\n");
+
+    create_request.assert();
+    update_request.assert();
+}
+
+#[test]
+fn routine_create_and_update_enforce_their_distinct_note_nullability() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let create_request = server.mock("POST", "/v1/routines").expect(0).create();
+
+    command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "routines",
+            "create",
+            "--dry-run",
+            "--data",
+            r#"{"routine":{"title":"Upper","notes":null,"exercises":[]}}"#,
+        ])
+        .assert()
+        .code(2)
+        .stdout("")
+        .stderr("{\"code\":\"invocation\",\"message\":\"Invalid routine create payload: routine.notes: invalid type: null, expected a string.\"}\n");
+    command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "routines",
+            "update",
+            "routine-1",
+            "--dry-run",
+            "--data",
+            r#"{"routine":{"title":"Upper","notes":null,"exercises":[]}}"#,
+        ])
+        .assert()
+        .success()
+        .stdout("{\"affected_resource\":\"routine-1\",\"dry_run\":true,\"request\":{\"body\":{\"routine\":{\"exercises\":[],\"notes\":null,\"title\":\"Upper\"}},\"method\":\"PUT\",\"path\":\"/v1/routines/routine-1\"}}\n")
+        .stderr("");
+
+    create_request.assert();
 }
 
 #[test]

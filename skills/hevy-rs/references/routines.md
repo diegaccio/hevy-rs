@@ -24,7 +24,9 @@ For API semantics and response shapes, see the official operations for [listing 
 
 Follow the shared mutation protocol in [common CLI guidance](common.md): form an exact finite plan, inspect a `--dry-run`, obtain fresh explicit approval, execute the approved batch once, and reconcile before any follow-up after an outcome-unknown mutation. Supply the complete API-shaped JSON payload with `--data <JSON|@path|->`; use a controlled file or standard input for dynamic payloads. Do not copy a complete payload schema into this skill.
 
-Routine creates and updates require a **routine request envelope**: the top-level JSON object must contain a `routine` object, for example `{"routine":{"title":"Upper","exercises":[]}}`. `routines get` also returns a top-level `routine` object, but its nested **routine resource** includes response-only fields. For an update, prepare a new request body from the resource's mutable fields; do not reuse the GET response unchanged, and omit `id`, `folder_id`, `created_at`, and `updated_at`.
+Routine creates and updates require a **routine request envelope**: the top-level JSON object must contain a `routine` object, for example `{"routine":{"title":"Upper","exercises":[]}}`. `routines get` also returns a top-level `routine` object, but its nested **routine resource** includes response-only fields. For a mutation, prepare a new request body from the resource's mutable fields; do not reuse the GET response unchanged. Omit routine `id`, `created_at`, and `updated_at`; exercise `index` and `title`; and set `index`. `folder_id` is mutable; use `null` to select the default folder.
+
+For routine creates and updates, `--dry-run` validates the complete operation-specific request schema locally before previewing the request. An invalid payload fails without an API call and identifies the JSON path of the first invalid field.
 
 Create a routine:
 

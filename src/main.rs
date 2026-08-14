@@ -104,6 +104,127 @@ enum ExerciseTemplateCommand {
     Create(MutationArgs),
 }
 
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PostRoutineRequest {
+    routine: PostRoutine,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PostRoutine {
+    title: Option<String>,
+    folder_id: Option<f64>,
+    #[serde(default)]
+    notes: PostRoutineNotes,
+    exercises: Option<Vec<PostRoutineExercise>>,
+}
+
+#[allow(dead_code)]
+struct PostRoutineNotes;
+
+impl<'de> Deserialize<'de> for PostRoutineNotes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(|_| Self)
+    }
+}
+
+impl Default for PostRoutineNotes {
+    fn default() -> Self {
+        Self
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PostRoutineExercise {
+    exercise_template_id: Option<String>,
+    superset_id: Option<i64>,
+    rest_seconds: Option<i64>,
+    notes: Option<String>,
+    sets: Option<Vec<PostRoutineSet>>,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PostRoutineSet {
+    #[serde(rename = "type")]
+    kind: Option<RoutineSetType>,
+    weight_kg: Option<f64>,
+    reps: Option<i64>,
+    distance_meters: Option<i64>,
+    duration_seconds: Option<i64>,
+    custom_metric: Option<f64>,
+    rep_range: Option<RepRange>,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PutRoutineRequest {
+    routine: PutRoutine,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PutRoutine {
+    title: Option<String>,
+    folder_id: Option<f64>,
+    notes: Option<String>,
+    exercises: Option<Vec<PutRoutineExercise>>,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PutRoutineExercise {
+    exercise_template_id: Option<String>,
+    superset_id: Option<i64>,
+    rest_seconds: Option<i64>,
+    notes: Option<String>,
+    sets: Option<Vec<PutRoutineSet>>,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PutRoutineSet {
+    #[serde(rename = "type")]
+    kind: Option<RoutineSetType>,
+    weight_kg: Option<f64>,
+    reps: Option<i64>,
+    distance_meters: Option<i64>,
+    duration_seconds: Option<i64>,
+    custom_metric: Option<f64>,
+    rep_range: Option<RepRange>,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RepRange {
+    start: Option<f64>,
+    end: Option<f64>,
+}
+
+#[allow(dead_code)]
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum RoutineSetType {
+    Warmup,
+    Normal,
+    Failure,
+    Dropset,
+}
+
 #[derive(Subcommand)]
 enum RoutineFolderCommand {
     /// List routine folders.
@@ -439,7 +560,7 @@ fn execute_mutation(
     }
 
     let payload = read_payload(&mutation.data)?;
-    validate_mutation_payload(resource_path, &payload)?;
+    validate_mutation_payload(resource_path, resource_id.is_some(), &payload)?;
     if mutation.dry_run {
         return Ok(dry_run_output(
             resource_path,
@@ -485,18 +606,46 @@ fn read_payload(source: &str) -> Result<serde_json::Value, AppError> {
 
 fn validate_mutation_payload(
     resource_path: &str,
+    is_update: bool,
     payload: &serde_json::Value,
 ) -> Result<(), AppError> {
-    if resource_path == "routines"
-        && !payload
-            .get("routine")
-            .is_some_and(serde_json::Value::is_object)
+    if resource_path != "routines" {
+        return Ok(());
+    }
+
+    if !payload
+        .get("routine")
+        .is_some_and(serde_json::Value::is_object)
     {
         return Err(AppError::invocation(
             "Routine payload must contain a top-level \"routine\" object.",
         ));
     }
-    Ok(())
+
+    if is_update {
+        validate_routine_request::<PutRoutineRequest>("update", payload)
+    } else {
+        validate_routine_request::<PostRoutineRequest>("create", payload)
+    }
+}
+
+fn validate_routine_request<T>(operation: &str, payload: &serde_json::Value) -> Result<(), AppError>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    serde_path_to_error::deserialize::<_, T>(payload)
+        .map(|_| ())
+        .map_err(|error| {
+            let path = error.path().to_string();
+            let message = error.inner().to_string();
+            let message = message.split(" at line ").next().unwrap_or(&message);
+            let detail = if message.starts_with("unknown field `") {
+                format!("{path} is not accepted; omit response-only fields")
+            } else {
+                format!("{path}: {message}")
+            };
+            AppError::invocation(format!("Invalid routine {operation} payload: {detail}."))
+        })
 }
 
 fn dry_run_output(
