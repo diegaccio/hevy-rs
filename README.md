@@ -1,5 +1,9 @@
 # hevy-rs
 
+<p align="center">
+  <img src="docs/assets/hevy-cli.png" alt="hevy-rs CLI mascot lifting a barbell" width="520">
+</p>
+
 Give your [AI coach](CONTEXT.md#language) safe, structured access to your Hevy workouts,
 routines, and progress. `hevy-rs` is a Rust CLI plus a bundled agent skill for accessing
 Hevy data—it is not a coaching product and does not provide fitness advice.
