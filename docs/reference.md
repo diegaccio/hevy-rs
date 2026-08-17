@@ -82,7 +82,7 @@ All listed operations map to documented public Hevy API operations.
 | --- | --- |
 | Authenticated user | `user get` |
 | Workouts | `workouts list`, `count`, `get <workout-id>`, `events`, `create`, `update <workout-id>` |
-| Routines | `routines list`, `get <routine-id>`, `create`, `update <routine-id>` |
+| Routines | `routines list`, `get <routine-id>`, `export-update-payload <routine-id>`, `create`, `update <routine-id>` |
 | Exercise templates | `exercise-templates list`, `get <exercise-template-id>`, `create` |
 | Routine folders | `routine-folders list`, `get <folder-id>`, `create` |
 | Exercise history | `exercise-history get <exercise-template-id>` |
@@ -95,6 +95,7 @@ hevy-rs user get
 hevy-rs workouts count
 hevy-rs workouts get <workout-id>
 hevy-rs routines get <routine-id>
+hevy-rs --format json routines export-update-payload <routine-id>
 hevy-rs exercise-templates get <exercise-template-id>
 hevy-rs routine-folders get <folder-id>
 hevy-rs body-measurements get 2025-01-15
@@ -125,6 +126,26 @@ hevy-rs workouts list --page 2 --page-size 10
 hevy-rs exercise-templates list --page-size 100
 hevy-rs routines list --all
 ```
+
+### Routine update-payload export
+
+Prepare an editable update body from a routine resource:
+
+```sh
+hevy-rs --format json routines export-update-payload <routine-id> > routine-update.json
+hevy-rs --format json routines update <routine-id> --dry-run --data @routine-update.json
+```
+
+The export performs one logical routine retrieval using the normal read retry policy. It
+emits a validated routine request envelope containing the mutable fields present in the
+response while preserving explicit nulls and exercise/set ordering. Known response-only
+fields are omitted. If the response contains an unrecognized field or cannot satisfy the
+current update schema, the command fails with an API error instead of silently producing
+an incomplete replacement. Default text output is the same envelope as pretty JSON.
+
+Treat the export as the starting point for updating the same source routine: edit it,
+inspect a dry run, and follow the normal mutation approval workflow before executing the
+update.
 
 ### Creates and updates
 

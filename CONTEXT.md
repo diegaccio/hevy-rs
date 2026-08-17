@@ -31,3 +31,7 @@ _Avoid_: routine update payload, routine request
 **Routine request envelope**:
 A top-level JSON object containing a `routine` object, required as the body for a routine create or update operation. A routine retrieval response uses the same outer envelope but its nested resource has different allowed fields.
 _Avoid_: unwrapped routine, routine resource
+
+**Routine update payload**:
+A routine request envelope containing only mutable fields projected from a routine resource and validated for a routine update. It preserves present mutable values, explicit nulls, and array ordering; known response-only fields are omitted, while unrecognized fields invalidate the projection.
+_Avoid_: sanitized routine response, routine resource

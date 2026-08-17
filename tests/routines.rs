@@ -114,6 +114,168 @@ fn routine_get_returns_the_documented_resource() {
 }
 
 #[test]
+fn routine_update_payload_export_removes_response_fields_and_preserves_mutable_data() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let request = server
+        .mock("GET", "/v1/routines/routine-123")
+        .match_header("api-key", "api-key")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(
+            r#"{"routine":{"id":"routine-123","created_at":"then","updated_at":"now","title":"Upper","folder_id":42,"notes":null,"exercises":[{"index":0,"title":"Bench","exercise_template_id":"bench","superset_id":null,"rest_seconds":120,"notes":null,"sets":[{"index":0,"type":"normal","weight_kg":60.5,"reps":8,"distance_meters":null,"duration_seconds":null,"custom_metric":null,"rep_range":{"start":8,"end":12}}]},{"index":1,"title":"Run","exercise_template_id":"run","sets":[]}]}}"#,
+        )
+        .create();
+
+    let output = command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "--api-key",
+            "api-key",
+            "routines",
+            "export-update-payload",
+            "routine-123",
+        ])
+        .assert()
+        .success()
+        .stderr("")
+        .get_output()
+        .stdout
+        .clone();
+
+    assert_eq!(
+        String::from_utf8(output.clone()).unwrap(),
+        "{\"routine\":{\"exercises\":[{\"exercise_template_id\":\"bench\",\"notes\":null,\"rest_seconds\":120,\"sets\":[{\"custom_metric\":null,\"distance_meters\":null,\"duration_seconds\":null,\"rep_range\":{\"end\":12,\"start\":8},\"reps\":8,\"type\":\"normal\",\"weight_kg\":60.5}],\"superset_id\":null},{\"exercise_template_id\":\"run\",\"sets\":[]}],\"folder_id\":42,\"notes\":null,\"title\":\"Upper\"}}\n"
+    );
+
+    command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "routines",
+            "update",
+            "routine-123",
+            "--dry-run",
+            "--data",
+            "-",
+        ])
+        .write_stdin(output)
+        .assert()
+        .success()
+        .stderr("");
+
+    request.assert();
+}
+
+#[test]
+fn routine_update_payload_export_has_pretty_json_text_output() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let request = server
+        .mock("GET", "/v1/routines/routine-123")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"routine":{"id":"routine-123","title":"Upper","exercises":[]}}"#)
+        .create();
+
+    command(&server, &config_home)
+        .args([
+            "--api-key",
+            "api-key",
+            "routines",
+            "export-update-payload",
+            "routine-123",
+        ])
+        .assert()
+        .success()
+        .stdout("{\n  \"routine\": {\n    \"exercises\": [],\n    \"title\": \"Upper\"\n  }\n}\n")
+        .stderr("");
+
+    request.assert();
+}
+
+#[test]
+fn routine_update_payload_export_rejects_unknown_or_invalid_response_fields_as_api_errors() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let unknown_request = server
+        .mock("GET", "/v1/routines/unknown")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"routine":{"title":"Upper","new_mutable_field":true,"exercises":[]}}"#)
+        .create();
+    let invalid_request = server
+        .mock("GET", "/v1/routines/invalid")
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"routine":{"title":"Upper","exercises":"not-an-array"}}"#)
+        .create();
+
+    command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "--api-key",
+            "api-key",
+            "routines",
+            "export-update-payload",
+            "unknown",
+        ])
+        .assert()
+        .code(4)
+        .stdout("")
+        .stderr("{\"code\":\"api\",\"message\":\"The Hevy API response cannot be converted to a routine update payload: routine.new_mutable_field is not recognized.\"}\n");
+    command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "--api-key",
+            "api-key",
+            "routines",
+            "export-update-payload",
+            "invalid",
+        ])
+        .assert()
+        .code(4)
+        .stdout("")
+        .stderr("{\"code\":\"api\",\"message\":\"The Hevy API response cannot be converted to a routine update payload: routine.exercises is not an array.\"}\n");
+
+    unknown_request.assert();
+    invalid_request.assert();
+}
+
+#[test]
+fn routine_update_payload_export_preserves_get_api_failures() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let request = server
+        .mock("GET", "/v1/routines/missing")
+        .with_status(404)
+        .with_header("content-type", "application/json")
+        .with_header("x-request-id", "request-123")
+        .with_body(r#"{"error":"routine not found"}"#)
+        .create();
+
+    command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "--api-key",
+            "api-key",
+            "routines",
+            "export-update-payload",
+            "missing",
+        ])
+        .assert()
+        .code(4)
+        .stdout("")
+        .stderr("{\"code\":\"api\",\"message\":\"The Hevy API request failed: routine not found.\",\"request_id\":\"request-123\",\"status\":404}\n");
+
+    request.assert();
+}
+
+#[test]
 fn routine_mutations_preserve_complete_nested_payloads_and_support_dry_runs() {
     let mut server = Server::new();
     let config_home = TempDir::new().unwrap();

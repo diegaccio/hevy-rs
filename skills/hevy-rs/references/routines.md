@@ -20,6 +20,22 @@ hevy-rs --format json routines get <routine-id>
 
 For API semantics and response shapes, see the official operations for [listing routines](https://api.hevyapp.com/docs/#/Routines/get_v1_routines) and [retrieving a routine](https://api.hevyapp.com/docs/#/Routines/get_v1_routines__routineId_).
 
+## Export an update payload
+
+Export an editable routine request envelope for the same source routine:
+
+```sh
+hevy-rs --format json routines export-update-payload <routine-id> > routine-update.json
+hevy-rs --format json routines update <routine-id> --dry-run --data @routine-update.json
+```
+
+The read-only export retrieves the routine, removes known response-only fields, preserves
+present mutable values, explicit nulls, and exercise/set ordering, and validates the
+result against the installed CLI's update schema. It fails rather than silently discarding
+an unrecognized response field. Edit the exported file, inspect the dry run, and obtain
+fresh explicit approval before performing the update. Do not treat export as approval for
+a mutation or use it to target a different routine.
+
 ## Create and update
 
 Follow the shared mutation protocol in [common CLI guidance](common.md): form an exact finite plan, inspect a `--dry-run`, obtain fresh explicit approval, execute the approved batch once, and reconcile before any follow-up after an outcome-unknown mutation. Supply the complete API-shaped JSON payload with `--data <JSON|@path|->`; use a controlled file or standard input for dynamic payloads. Do not copy a complete payload schema into this skill.

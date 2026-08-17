@@ -83,6 +83,11 @@ enum RoutineCommand {
     List(PaginationArgs),
     /// Retrieve a routine's complete details.
     Get { routine_id: String },
+    /// Export a routine as a validated update request payload.
+    ExportUpdatePayload {
+        /// Routine identifier.
+        routine_id: String,
+    },
     /// Create a routine from a complete API-shaped JSON request body with a top-level `routine` object.
     Create(MutationArgs),
     /// Replace a routine with a complete API-shaped JSON request body with a top-level `routine` object.
@@ -524,6 +529,9 @@ fn main() {
             }),
             RoutineCommand::Get { routine_id } => resolve_api_key(cli.api_key)
                 .and_then(|api_key| client::get_routine(&api_key, &routine_id)),
+            RoutineCommand::ExportUpdatePayload { routine_id } => {
+                export_routine_update_payload(cli.api_key, &routine_id)
+            }
             RoutineCommand::Create(mutation) => {
                 execute_mutation(cli.api_key, "routines", "routine", None, mutation)
             }
@@ -544,6 +552,138 @@ fn main() {
         Ok(user) => render::success(&user, format),
         Err(error) => exit_with(error, format),
     }
+}
+
+fn export_routine_update_payload(
+    explicit_api_key: Option<String>,
+    routine_id: &str,
+) -> Result<serde_json::Value, AppError> {
+    let api_key = resolve_api_key(explicit_api_key)?;
+    let response = client::get_routine(&api_key, routine_id)?;
+    let response = project_object(&response, "response", &["routine"], &[])?;
+    let routine = response
+        .get("routine")
+        .ok_or_else(|| routine_projection_error("routine is missing"))?;
+    let mut routine = project_object(
+        routine,
+        "routine",
+        &["title", "folder_id", "notes", "exercises"],
+        &["id", "created_at", "updated_at"],
+    )?;
+
+    if let Some(exercises) = routine.get_mut("exercises") {
+        project_array(exercises, "routine.exercises", project_routine_exercise)?;
+    }
+
+    let payload = serde_json::json!({ "routine": routine });
+    routine_request_validation_detail::<PutRoutineRequest>(&payload).map_err(|detail| {
+        routine_projection_error(format!("the projected payload is invalid: {detail}"))
+    })?;
+    Ok(payload)
+}
+
+fn project_routine_exercise(
+    exercise: &serde_json::Value,
+    path: &str,
+) -> Result<serde_json::Value, AppError> {
+    let mut exercise = project_object(
+        exercise,
+        path,
+        &[
+            "exercise_template_id",
+            "superset_id",
+            "rest_seconds",
+            "notes",
+            "sets",
+        ],
+        &["index", "title"],
+    )?;
+    if let Some(sets) = exercise.get_mut("sets") {
+        project_array(sets, &format!("{path}.sets"), project_routine_set)?;
+    }
+    Ok(serde_json::Value::Object(exercise))
+}
+
+fn project_routine_set(set: &serde_json::Value, path: &str) -> Result<serde_json::Value, AppError> {
+    let mut set = project_object(
+        set,
+        path,
+        &[
+            "type",
+            "weight_kg",
+            "reps",
+            "distance_meters",
+            "duration_seconds",
+            "custom_metric",
+            "rep_range",
+        ],
+        &["index"],
+    )?;
+    if let Some(rep_range) = set.get_mut("rep_range")
+        && !rep_range.is_null()
+    {
+        *rep_range = serde_json::Value::Object(project_object(
+            rep_range,
+            &format!("{path}.rep_range"),
+            &["start", "end"],
+            &[],
+        )?);
+    }
+    Ok(serde_json::Value::Object(set))
+}
+
+fn project_array(
+    value: &mut serde_json::Value,
+    path: &str,
+    project_item: fn(&serde_json::Value, &str) -> Result<serde_json::Value, AppError>,
+) -> Result<(), AppError> {
+    if value.is_null() {
+        return Ok(());
+    }
+    let items = value
+        .as_array()
+        .ok_or_else(|| routine_projection_error(format!("{path} is not an array")))?;
+    let projected = items
+        .iter()
+        .enumerate()
+        .map(|(index, item)| project_item(item, &format!("{path}[{index}]")))
+        .collect::<Result<Vec<_>, _>>()?;
+    *value = serde_json::Value::Array(projected);
+    Ok(())
+}
+
+fn project_object(
+    value: &serde_json::Value,
+    path: &str,
+    allowed_fields: &[&str],
+    omitted_fields: &[&str],
+) -> Result<serde_json::Map<String, serde_json::Value>, AppError> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| routine_projection_error(format!("{path} is not an object")))?;
+    if let Some(field) = object.keys().find(|field| {
+        !allowed_fields.contains(&field.as_str()) && !omitted_fields.contains(&field.as_str())
+    }) {
+        return Err(routine_projection_error(format!(
+            "{path}.{field} is not recognized"
+        )));
+    }
+
+    Ok(allowed_fields
+        .iter()
+        .filter_map(|field| {
+            object
+                .get(*field)
+                .cloned()
+                .map(|value| ((*field).to_owned(), value))
+        })
+        .collect())
+}
+
+fn routine_projection_error(detail: impl std::fmt::Display) -> AppError {
+    AppError::api_message(format!(
+        "The Hevy API response cannot be converted to a routine update payload: {detail}."
+    ))
 }
 
 fn execute_mutation(
@@ -633,18 +773,26 @@ fn validate_routine_request<T>(operation: &str, payload: &serde_json::Value) -> 
 where
     T: for<'de> Deserialize<'de>,
 {
+    routine_request_validation_detail::<T>(payload).map_err(|detail| {
+        AppError::invocation(format!("Invalid routine {operation} payload: {detail}."))
+    })
+}
+
+fn routine_request_validation_detail<T>(payload: &serde_json::Value) -> Result<(), String>
+where
+    T: for<'de> Deserialize<'de>,
+{
     serde_path_to_error::deserialize::<_, T>(payload)
         .map(|_| ())
         .map_err(|error| {
             let path = error.path().to_string();
             let message = error.inner().to_string();
             let message = message.split(" at line ").next().unwrap_or(&message);
-            let detail = if message.starts_with("unknown field `") {
+            if message.starts_with("unknown field `") {
                 format!("{path} is not accepted; omit response-only fields")
             } else {
                 format!("{path}: {message}")
-            };
-            AppError::invocation(format!("Invalid routine {operation} payload: {detail}."))
+            }
         })
 }
 
