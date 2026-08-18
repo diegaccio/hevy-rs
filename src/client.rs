@@ -104,7 +104,7 @@ fn mutate_resource(
             request_id(&response),
         ));
     }
-    response_to_json(response)
+    response_to_mutation_json(response)
 }
 
 pub fn list_routines(api_key: &str, pagination: Pagination) -> Result<Value, AppError> {
@@ -410,6 +410,35 @@ fn response_to_user(response: Response) -> Result<Value, AppError> {
         .filter(|data| data.is_object())
         .cloned()
         .unwrap_or(body))
+}
+
+fn response_to_mutation_json(response: Response) -> Result<Value, AppError> {
+    let status = response.status();
+    let request_id = request_id(&response);
+
+    if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
+        return Err(AppError::authentication_response(
+            "The Hevy API rejected the supplied API key.",
+            status,
+            request_id,
+        ));
+    }
+    if !status.is_success() {
+        return response_to_json(response);
+    }
+
+    let body = response.bytes().map_err(|_| {
+        AppError::api(
+            "The Hevy API returned an invalid JSON response.",
+            status,
+            request_id.clone(),
+        )
+    })?;
+    if body.iter().all(u8::is_ascii_whitespace) {
+        return Ok(Value::Null);
+    }
+
+    Ok(serde_json::from_slice(&body).unwrap_or(Value::Null))
 }
 
 fn response_to_json(response: Response) -> Result<Value, AppError> {

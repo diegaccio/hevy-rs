@@ -85,6 +85,39 @@ fn exercise_template_commands_use_documented_requests() {
 }
 
 #[test]
+fn exercise_template_create_accepts_a_non_json_success_response() {
+    let mut server = Server::new();
+    let config_home = TempDir::new().unwrap();
+    let create = server
+        .mock("POST", "/v1/exercise_templates")
+        .match_header("api-key", "api-key")
+        .match_header("content-type", "application/json")
+        .match_body(mockito::Matcher::JsonString(
+            r#"{"exercise":{"title":"Custom Squat","exercise_type":"weight_reps"}}"#.to_owned(),
+        ))
+        .with_status(200)
+        .with_body("Created")
+        .create();
+
+    command(&server, &config_home)
+        .args([
+            "--format",
+            "json",
+            "--api-key",
+            "api-key",
+            "exercise-templates",
+            "create",
+            "--data",
+            r#"{"exercise":{"title":"Custom Squat","exercise_type":"weight_reps"}}"#,
+        ])
+        .assert()
+        .success()
+        .stdout("null\n");
+
+    create.assert();
+}
+
+#[test]
 fn routine_folder_commands_use_documented_requests() {
     let mut server = Server::new();
     let config_home = TempDir::new().unwrap();

@@ -18,7 +18,7 @@ Use concise shell examples as grammar references, but execute them through the h
 hevy-rs --format json user get
 ```
 
-For data-bearing commands, use `--format json`. On success, parse JSON only from stdout after a zero exit status. On failure, treat stdout as non-data and parse the JSON error from stderr:
+For data-bearing commands, use `--format json`. On success, parse JSON only from stdout after a zero exit status. A create or update that succeeds without a JSON response body writes JSON `null` to stdout. On failure, treat stdout as non-data and parse the JSON error from stderr:
 
 | Exit | Error code | Meaning |
 | ---: | --- | --- |
