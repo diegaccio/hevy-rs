@@ -438,7 +438,18 @@ fn response_to_mutation_json(response: Response) -> Result<Value, AppError> {
         return Ok(Value::Null);
     }
 
-    Ok(serde_json::from_slice(&body).unwrap_or(Value::Null))
+    match serde_json::from_slice(&body) {
+        Ok(value) => Ok(value),
+        Err(_) => String::from_utf8(body.to_vec())
+            .map(|body| Value::String(body.trim().to_owned()))
+            .map_err(|_| {
+                AppError::api(
+                    "The Hevy API returned an invalid mutation response.",
+                    status,
+                    request_id,
+                )
+            }),
+    }
 }
 
 fn response_to_json(response: Response) -> Result<Value, AppError> {

@@ -14,8 +14,8 @@ API documentation: <https://api.hevyapp.com/docs/>
 
 - When a fact relevant to a change could be verified more reliably against the live Hevy API than against documentation alone, ask the user for permission to use the `HEVY_API_KEY` environment variable. Do not assume that permission from its presence.
 - Once permission is granted, use the live API to validate the fact rather than relying blindly on published API documentation. Prefer a read-only request whenever it can answer the question.
-- If a live mutation is necessary, obtain explicit approval for that mutation and target only the dedicated test resources: routine `[TEST] hevy-rs API verification (update check)` (`498f951f-db4e-46ea-b72f-6e525d7a9ff9`) or routine folder `Test` (`3331054`). Never modify a non-test resource for API verification.
-- The Hevy API has no documented delete operation. Preserve the test resources and avoid creating additional verification data unless the user explicitly approves it.
+- If a live mutation is necessary, obtain explicit approval for that mutation and target only test resources: routine `[TEST] hevy-rs API verification (update check)` (`498f951f-db4e-46ea-b72f-6e525d7a9ff9`), routine folder `Test` (`3331054`), or a custom exercise template whose title starts with `[TEST]`. Never modify a non-test resource for API verification.
+- The Hevy API has no documented delete operation. Preserve test resources and avoid creating additional verification data unless the user explicitly approves it. Every API-verification resource created by the CLI must have a title starting with `[TEST]` so it is identifiable for later cleanup.
 
 ## CLI-skill synchronization
 

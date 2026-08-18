@@ -16,7 +16,7 @@ fn command(server: &Server, config_home: &TempDir) -> Command {
 }
 
 #[test]
-fn exercise_template_commands_use_documented_requests() {
+fn exercise_template_commands_serialize_the_live_api_contract() {
     let mut server = Server::new();
     let config_home = TempDir::new().unwrap();
     let list = server
@@ -39,7 +39,7 @@ fn exercise_template_commands_use_documented_requests() {
         .match_header("api-key", "api-key")
         .match_header("content-type", "application/json")
         .match_body(mockito::Matcher::JsonString(
-            r#"{"exercise":{"title":"Custom Squat","exercise_type":"weight_reps"}}"#.to_owned(),
+            r#"{"exercise":{"equipment_category":"barbell","exercise_type":"weight_reps","muscle_group":"quadriceps","other_muscles":[],"title":"Custom Squat"}}"#.to_owned(),
         ))
         .with_status(200)
         .with_header("content-type", "application/json")
@@ -66,14 +66,8 @@ fn exercise_template_commands_use_documented_requests() {
         .stdout("{\"id\":\"template-1\",\"title\":\"Squat\"}\n");
     command(&server, &config_home)
         .args([
-            "--format",
-            "json",
-            "--api-key",
-            "api-key",
-            "exercise-templates",
-            "create",
-            "--data",
-            r#"{"exercise":{"title":"Custom Squat","exercise_type":"weight_reps"}}"#,
+            "--format", "json", "--api-key", "api-key", "exercise-templates", "create", "--data",
+            r#"{"title":"Custom Squat","type":"weight_reps","equipment":"barbell","primary_muscle_group":"quadriceps"}"#,
         ])
         .assert()
         .success()
@@ -85,36 +79,43 @@ fn exercise_template_commands_use_documented_requests() {
 }
 
 #[test]
-fn exercise_template_create_accepts_a_non_json_success_response() {
+fn exercise_template_create_returns_the_plain_text_template_id() {
     let mut server = Server::new();
     let config_home = TempDir::new().unwrap();
     let create = server
         .mock("POST", "/v1/exercise_templates")
         .match_header("api-key", "api-key")
-        .match_header("content-type", "application/json")
         .match_body(mockito::Matcher::JsonString(
-            r#"{"exercise":{"title":"Custom Squat","exercise_type":"weight_reps"}}"#.to_owned(),
+            r#"{"exercise":{"equipment_category":"barbell","exercise_type":"weight_reps","muscle_group":"quadriceps","other_muscles":[],"title":"Custom Squat"}}"#.to_owned(),
         ))
         .with_status(200)
-        .with_body("Created")
+        .with_body("template-2")
         .create();
 
     command(&server, &config_home)
         .args([
-            "--format",
-            "json",
-            "--api-key",
-            "api-key",
-            "exercise-templates",
-            "create",
-            "--data",
-            r#"{"exercise":{"title":"Custom Squat","exercise_type":"weight_reps"}}"#,
+            "--format", "json", "--api-key", "api-key", "exercise-templates", "create", "--data",
+            r#"{"title":"Custom Squat","type":"weight_reps","equipment":"barbell","primary_muscle_group":"quadriceps"}"#,
         ])
         .assert()
         .success()
-        .stdout("null\n");
+        .stdout("\"template-2\"\n");
 
     create.assert();
+}
+
+#[test]
+fn exercise_template_create_dry_run_displays_the_live_wire_shape() {
+    let config_home = TempDir::new().unwrap();
+
+    command(&Server::new(), &config_home)
+        .args([
+            "--format", "json", "exercise-templates", "create", "--dry-run", "--data",
+            r#"{"title":"Banded Lat Stretch","type":"reps_only","equipment":"resistance_band","primary_muscle_group":"lats","secondary_muscle_groups":["shoulders"]}"#,
+        ])
+        .assert()
+        .success()
+        .stdout("{\"affected_resource\":\"new exercise template\",\"dry_run\":true,\"request\":{\"body\":{\"exercise\":{\"equipment_category\":\"resistance_band\",\"exercise_type\":\"reps_only\",\"muscle_group\":\"lats\",\"other_muscles\":[\"shoulders\"],\"title\":\"Banded Lat Stretch\"}},\"method\":\"POST\",\"path\":\"/v1/exercise_templates\"}}\n");
 }
 
 #[test]

@@ -5,7 +5,7 @@ mod render;
 use clap::{Args, Parser, Subcommand, error::ErrorKind};
 use error::AppError;
 use render::OutputFormat;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     env, fs,
     io::{self, Read},
@@ -105,8 +105,34 @@ enum ExerciseTemplateCommand {
     List(ExerciseTemplatePaginationArgs),
     /// Retrieve an exercise template.
     Get { exercise_template_id: String },
-    /// Create an exercise template from a complete API-shaped JSON payload.
+    /// Create an exercise template from the documented JSON payload.
     Create(MutationArgs),
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct CreateExerciseTemplateRequest {
+    title: String,
+    #[serde(rename = "type")]
+    exercise_type: String,
+    equipment: String,
+    primary_muscle_group: String,
+    #[serde(default)]
+    secondary_muscle_groups: Vec<String>,
+}
+
+impl CreateExerciseTemplateRequest {
+    fn into_wire_payload(self) -> serde_json::Value {
+        serde_json::json!({
+            "exercise": {
+                "title": self.title,
+                "exercise_type": self.exercise_type,
+                "equipment_category": self.equipment,
+                "muscle_group": self.primary_muscle_group,
+                "other_muscles": self.secondary_muscle_groups,
+            }
+        })
+    }
 }
 
 #[allow(dead_code)]
@@ -699,7 +725,7 @@ fn execute_mutation(
         ));
     }
 
-    let payload = read_payload(&mutation.data)?;
+    let payload = normalize_mutation_payload(resource_path, &read_payload(&mutation.data)?)?;
     validate_mutation_payload(resource_path, resource_id.is_some(), &payload)?;
     if mutation.dry_run {
         return Ok(dry_run_output(
@@ -742,6 +768,28 @@ fn read_payload(source: &str) -> Result<serde_json::Value, AppError> {
 
     serde_json::from_str(&content)
         .map_err(|_| AppError::invocation("--data must contain valid JSON."))
+}
+
+fn normalize_mutation_payload(
+    resource_path: &str,
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, AppError> {
+    if resource_path != "exercise_templates" {
+        return Ok(payload.clone());
+    }
+
+    serde_json::from_value::<CreateExerciseTemplateRequest>(payload.clone())
+        .map(CreateExerciseTemplateRequest::into_wire_payload)
+        .map_err(|error| {
+            AppError::invocation(format!(
+                "Invalid exercise template create payload: {}.",
+                error
+                    .to_string()
+                    .split(" at line ")
+                    .next()
+                    .unwrap_or("invalid payload")
+            ))
+        })
 }
 
 fn validate_mutation_payload(
